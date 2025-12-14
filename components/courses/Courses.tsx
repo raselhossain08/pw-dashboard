@@ -15,6 +15,10 @@ import {
   ChartLine,
   Filter,
   Plus,
+  Download,
+  Grid3x3,
+  List,
+  RefreshCw,
 } from "lucide-react";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -51,6 +55,8 @@ export default function Courses() {
   const [sortBy, setSortBy] = React.useState<string>("Newest");
   const [deleteId, setDeleteId] = React.useState<string | null>(null);
   const [actionLoading, setActionLoading] = React.useState<string | null>(null);
+  const [viewMode, setViewMode] = React.useState<"table" | "grid">("table");
+  const [isExporting, setIsExporting] = React.useState(false);
 
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["courses", { search, statusFilter }],
@@ -250,7 +256,68 @@ export default function Courses() {
   };
 
   const handleEdit = (course: Course) => {
-    router.push(`/(dashboard)/(lms)/courses/${course.id}/edit`);
+    router.push(`/courses/${course.id}/edit`);
+  };
+
+  const handleReorder = async (reorderedCourses: Course[]) => {
+    // Here you could implement API call to save the new order
+    console.log(
+      "Courses reordered:",
+      reorderedCourses.map((c) => c.id)
+    );
+    push({ type: "success", message: "Course order updated" });
+  };
+
+  const handleExportCSV = () => {
+    setIsExporting(true);
+    try {
+      const headers = [
+        "Title",
+        "Level",
+        "Price",
+        "Original Price",
+        "Duration",
+        "Students",
+        "Rating",
+        "Status",
+        "Categories",
+        "Created Date",
+      ];
+
+      const rows = filteredCourses.map((course) => [
+        course.title,
+        course.level,
+        course.price,
+        course.originalPrice || "",
+        course.duration,
+        course.enrollmentCount || 0,
+        course.rating || 0,
+        course.status || (course.isPublished ? "published" : "draft"),
+        (course.categories || []).join("; "),
+        new Date(course.createdAt || "").toLocaleDateString(),
+      ]);
+
+      const csvContent =
+        "data:text/csv;charset=utf-8," +
+        [headers, ...rows].map((row) => row.join(",")).join("\n");
+
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute(
+        "download",
+        `courses_export_${new Date().toISOString().split("T")[0]}.csv`
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      push({ type: "success", message: "Courses exported successfully" });
+    } catch (err) {
+      push({ type: "error", message: "Failed to export courses" });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   if (isLoading) {
@@ -297,20 +364,68 @@ export default function Courses() {
             Manage your aviation training courses and enrollments
           </p>
         </div>
-        {roleCanManage && (
+        <div className="flex items-center gap-3">
+          {/* View Mode Toggle */}
+          <div className="flex items-center bg-white border border-gray-200 rounded-lg p-1">
+            <Button
+              variant={viewMode === "table" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("table")}
+              className="px-3"
+            >
+              <List className="w-4 h-4" />
+            </Button>
+            <Button
+              variant={viewMode === "grid" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("grid")}
+              className="px-3"
+            >
+              <Grid3x3 className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {/* Export Button */}
           <Button
-            onClick={() => router.push("/courses/create")}
-            className="bg-primary hover:bg-primary/90 text-white"
+            variant="outline"
+            onClick={handleExportCSV}
+            disabled={isExporting || filteredCourses.length === 0}
           >
-            <Plus className="w-5 h-5 mr-2" />
-            Create Course
+            {isExporting ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="w-4 h-4 mr-2" />
+            )}
+            Export CSV
           </Button>
-        )}
+
+          {/* Refresh Button */}
+          <Button
+            variant="outline"
+            onClick={() => qc.invalidateQueries({ queryKey: ["courses"] })}
+            disabled={isLoading}
+          >
+            <RefreshCw
+              className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`}
+            />
+          </Button>
+
+          {/* Create Course Button */}
+          {roleCanManage && (
+            <Button
+              onClick={() => router.push("/courses/create")}
+              className="bg-primary hover:bg-primary/90 text-white"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Create Course
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-gradient-to-br from-primary to-primary/80 rounded-xl p-6 text-white shadow-lg">
+        <div className="bg-linear-to-br from-primary to-primary/80 rounded-xl p-6 text-white shadow-lg">
           <div className="flex items-center justify-between mb-4">
             <div className="bg-white/20 p-3 rounded-lg">
               <Book className="w-6 h-6" />
@@ -324,7 +439,7 @@ export default function Courses() {
           <p className="text-3xl font-bold">{stats.totalCourses}</p>
         </div>
 
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white shadow-lg">
+        <div className="bg-linear-to-br from-green-500 to-green-600 rounded-xl p-6 text-white shadow-lg">
           <div className="flex items-center justify-between mb-4">
             <div className="bg-white/20 p-3 rounded-lg">
               <Users className="w-6 h-6" />
@@ -338,7 +453,7 @@ export default function Courses() {
           <p className="text-3xl font-bold">{stats.totalStudents}</p>
         </div>
 
-        <div className="bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl p-6 text-white shadow-lg">
+        <div className="bg-linear-to-br from-yellow-500 to-yellow-600 rounded-xl p-6 text-white shadow-lg">
           <div className="flex items-center justify-between mb-4">
             <div className="bg-white/20 p-3 rounded-lg">
               <Star className="w-6 h-6" />
@@ -351,7 +466,7 @@ export default function Courses() {
           <p className="text-3xl font-bold">{stats.avgRating.toFixed(1)}</p>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
+        <div className="bg-linear-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
           <div className="flex items-center justify-between mb-4">
             <div className="bg-white/20 p-3 rounded-lg">
               <ChartLine className="w-6 h-6" />
@@ -476,7 +591,9 @@ export default function Courses() {
         onDuplicate={handleDuplicate}
         onPublish={handlePublish}
         onUnpublish={handleUnpublish}
+        onReorder={handleReorder}
         actionLoading={actionLoading}
+        viewMode={viewMode}
       />
 
       {/* Delete Confirmation */}

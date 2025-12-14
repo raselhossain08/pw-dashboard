@@ -19,6 +19,7 @@ export interface CreateAssignmentDto {
   dueDate: string;
   maxPoints?: number;
   attachments?: string[];
+  moduleId?: string;
 }
 
 export interface UpdateAssignmentDto {

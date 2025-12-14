@@ -50,6 +50,7 @@ export interface CreateLessonPayload {
     type: LessonType | string;
     content?: string;
     videoUrl?: string;
+    thumbnail?: string;
     duration?: number;
     order?: number;
     isFree?: boolean;
@@ -63,6 +64,7 @@ export interface UpdateLessonPayload {
     type?: LessonType | string;
     content?: string;
     videoUrl?: string;
+    thumbnail?: string;
     duration?: number;
     order?: number;
     isFree?: boolean;

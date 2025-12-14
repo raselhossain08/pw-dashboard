@@ -45,6 +45,7 @@ export type CreateQuizPayload = {
   description?: string;
   courseId: string;
   lessonId?: string;
+  moduleId?: string;
   questions: Omit<QuizQuestion, "id">[];
   passingScore: number;
   duration: number;
