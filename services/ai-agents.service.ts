@@ -102,4 +102,31 @@ export const aiAgentsService = {
     getAgentLogs(id: string) {
         return apiClient.get(`/ai-bot/agents/${id}/logs`);
     },
+
+    // Get conversation messages by conversation ID
+    getConversationMessages(conversationId: string) {
+        return apiClient.get(`/ai-bot/conversations/${conversationId}/messages`);
+    },
+
+    // Test agent with a message
+    testAgent(id: string, message: string, context?: Record<string, unknown>) {
+        return apiClient.post(`/ai-bot/agents/${id}/test`, { message, context });
+    },
+
+    // Get agent configuration
+    getAgentConfig(id: string) {
+        return apiClient.get(`/ai-bot/agents/${id}/config`);
+    },
+
+    // Update agent configuration
+    updateAgentConfig(id: string, config: Record<string, unknown>) {
+        return apiClient.put(`/ai-bot/agents/${id}/config`, config);
+    },
+
+    // Get per-agent analytics
+    getAgentAnalytics(id: string, startDate?: string, endDate?: string) {
+        return apiClient.get(`/ai-bot/agents/${id}/analytics`, {
+            params: { startDate, endDate },
+        });
+    },
 };

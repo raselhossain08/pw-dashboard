@@ -64,6 +64,7 @@ export default function Courses() {
     loading: coursesLoading,
     stats: backendStats,
     statsLoading,
+    fetchCourses,
     deleteCourse: deleteCourseHook,
     duplicateCourse: duplicateCourseHook,
     publishCourse: publishCourseHook,

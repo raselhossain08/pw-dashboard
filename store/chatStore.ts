@@ -29,11 +29,13 @@ export type Conversation = {
   unread?: number;
   messages: Message[];
   participants?: Array<{ _id: string; firstName?: string; lastName?: string; avatar?: string } | string>;
+  archived?: boolean;
+  starred?: boolean;
 };
 
 export interface ChatFilters {
   search?: string;
-  filterTab?: "all" | "unread";
+  filterTab?: "all" | "unread" | "archived" | "starred";
 }
 
 interface ChatState {
@@ -55,7 +57,7 @@ interface ChatState {
 
   // UI states
   searchQuery: string;
-  filterTab: "all" | "unread";
+  filterTab: "all" | "unread" | "archived" | "starred";
   isNewChatOpen: boolean;
   isDeleteDialogOpen: boolean;
   conversationToDelete: string | null;
@@ -93,7 +95,7 @@ interface ChatState {
 
   // Actions - UI
   setSearchQuery: (query: string) => void;
-  setFilterTab: (tab: "all" | "unread") => void;
+  setFilterTab: (tab: "all" | "unread" | "archived" | "starred") => void;
   setNewChatOpen: (open: boolean) => void;
   setDeleteDialogOpen: (open: boolean) => void;
   setConversationToDelete: (id: string | null) => void;

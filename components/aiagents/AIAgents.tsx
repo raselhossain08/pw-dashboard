@@ -80,6 +80,15 @@ import type {
   ConversationRow,
 } from "@/services/ai-agents.service";
 import { useToast } from "@/context/ToastContext";
+import {
+  validateAgentForm,
+  hasValidationErrors,
+  sanitizeAgentFormData,
+  type ValidationErrors,
+} from "@/lib/validations/ai-agent.validation";
+import { AIAgentsLoadingSkeleton } from "./LoadingSkeletons";
+import { TestAgentPanel } from "./TestAgentPanel";
+import { AgentConfigPanel } from "./AgentConfigPanel";
 
 const getIconStyles = (index: number) => {
   const styles = [
@@ -139,6 +148,16 @@ export default function AIAgents() {
   const [bulkActionOpen, setBulkActionOpen] = React.useState(false);
   const [conversationsPage, setConversationsPage] = React.useState(1);
   const conversationsPerPage = 10;
+  const [testAgentOpen, setTestAgentOpen] = React.useState(false);
+  const [configAgentOpen, setConfigAgentOpen] = React.useState(false);
+  const [agentForTest, setAgentForTest] = React.useState<Agent | null>(null);
+  const [agentForConfig, setAgentForConfig] = React.useState<Agent | null>(
+    null
+  );
+
+  // Form validation errors
+  const [validationErrors, setValidationErrors] =
+    React.useState<ValidationErrors>({});
 
   // Form states
   const [formData, setFormData] = React.useState<CreateAgentDto>({
@@ -164,10 +183,24 @@ export default function AIAgents() {
   }, []);
 
   const handleCreateAgent = async () => {
+    // Validate form before submission
+    const errors = validateAgentForm(formData);
+    setValidationErrors(errors);
+
+    if (hasValidationErrors(errors)) {
+      push({
+        message: "Please fix all validation errors before submitting",
+        type: "error",
+      });
+      return;
+    }
+
     try {
-      await createAgent(formData);
+      const sanitizedData = sanitizeAgentFormData(formData);
+      await createAgent(sanitizedData);
       setNewAgentOpen(false);
       resetForm();
+      setValidationErrors({});
     } catch (error) {
       console.error("Failed to create agent:", error);
     }
@@ -175,11 +208,26 @@ export default function AIAgents() {
 
   const handleUpdateAgent = async () => {
     if (!selectedAgent) return;
+
+    // Validate form before submission
+    const errors = validateAgentForm(formData);
+    setValidationErrors(errors);
+
+    if (hasValidationErrors(errors)) {
+      push({
+        message: "Please fix all validation errors before submitting",
+        type: "error",
+      });
+      return;
+    }
+
     try {
-      await updateAgent(selectedAgent._id, formData);
+      const sanitizedData = sanitizeAgentFormData(formData);
+      await updateAgent(selectedAgent._id, sanitizedData);
       setEditAgentOpen(false);
       setSelectedAgent(null);
       resetForm();
+      setValidationErrors({});
     } catch (error) {
       console.error("Failed to update agent:", error);
     }
@@ -218,29 +266,16 @@ export default function AIAgents() {
     try {
       setLoadingHistory(true);
       setSelectedConversation(conversation);
-      // Fetch conversation history - try using conversation _id as sessionId
-      // The backend getHistory endpoint accepts sessionId as query param
-      const { data } = await aiBotService.getHistory(conversation._id);
+      // Fetch conversation messages using the dedicated endpoint
+      const { data } = await aiAgentsService.getConversationMessages(
+        conversation._id
+      );
 
-      // Handle different response formats
-      const dataAny = data as any;
-      if (Array.isArray(dataAny)) {
-        // Find the conversation by ID or use the first one
-        const conv: any =
-          dataAny.find((c: any) => c._id === conversation._id) || dataAny[0];
-        if (conv && conv.messages) {
-          setConversationHistory(conv.messages);
-        } else if (conv && Array.isArray(conv)) {
-          // If messages are at root level
-          setConversationHistory(conv);
-        } else {
-          setConversationHistory([]);
-        }
-      } else if (dataAny && dataAny.messages) {
-        setConversationHistory(dataAny.messages);
-      } else {
-        setConversationHistory([]);
-      }
+      // Handle response - expect array of messages
+      const messages = Array.isArray(data)
+        ? data
+        : (data as any)?.messages || [];
+      setConversationHistory(messages);
       setViewConversationOpen(true);
     } catch (error: any) {
       push({
@@ -340,6 +375,16 @@ export default function AIAgents() {
     });
   };
 
+  const handleTestAgent = (agent: Agent) => {
+    setAgentForTest(agent);
+    setTestAgentOpen(true);
+  };
+
+  const handleAdvancedConfig = (agent: Agent) => {
+    setAgentForConfig(agent);
+    setConfigAgentOpen(true);
+  };
+
   const paginatedConversations = React.useMemo(() => {
     const start = (conversationsPage - 1) * conversationsPerPage;
     const end = start + conversationsPerPage;
@@ -375,6 +420,7 @@ export default function AIAgents() {
       knowledgeBase: [],
       status: "active",
     });
+    setValidationErrors({});
   };
 
   const toggleKnowledgeBase = (item: string) => {
@@ -413,14 +459,7 @@ export default function AIAgents() {
     });
 
   if (loading) {
-    return (
-      <main className="p-6 flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-gray-600">Loading AI Agents...</p>
-        </div>
-      </main>
-    );
+    return <AIAgentsLoadingSkeleton />;
   }
 
   return (
@@ -693,6 +732,15 @@ export default function AIAgents() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleTestAgent(a)}>
+                        <Logs className="w-4 h-4 mr-2" />
+                        Test Agent
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleAdvancedConfig(a)}>
+                        <Settings className="w-4 h-4 mr-2" />
+                        Advanced Config
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={() => handleViewLogs(a)}>
                         <Logs className="w-4 h-4 mr-2" />
                         View Logs
@@ -916,37 +964,84 @@ export default function AIAgents() {
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label htmlFor="agent-name">Agent Name</Label>
+              <Label htmlFor="agent-name">
+                Agent Name <span className="text-red-500">*</span>
+              </Label>
               <Input
                 id="agent-name"
                 value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
+                onChange={(e) => {
+                  setFormData({ ...formData, name: e.target.value });
+                  if (validationErrors.name) {
+                    setValidationErrors({
+                      ...validationErrors,
+                      name: undefined,
+                    });
+                  }
+                }}
                 placeholder="e.g., Math Tutor"
+                aria-invalid={!!validationErrors.name}
+                aria-describedby={
+                  validationErrors.name ? "name-error" : undefined
+                }
+                className={validationErrors.name ? "border-red-500" : ""}
               />
+              {validationErrors.name && (
+                <p id="name-error" className="text-sm text-red-500 mt-1">
+                  {validationErrors.name}
+                </p>
+              )}
             </div>
             <div>
-              <Label htmlFor="agent-desc">Description</Label>
+              <Label htmlFor="agent-desc">
+                Description <span className="text-red-500">*</span>
+              </Label>
               <Textarea
                 id="agent-desc"
                 value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
+                onChange={(e) => {
+                  setFormData({ ...formData, description: e.target.value });
+                  if (validationErrors.description) {
+                    setValidationErrors({
+                      ...validationErrors,
+                      description: undefined,
+                    });
+                  }
+                }}
                 rows={3}
                 placeholder="Describe what this agent will do..."
+                aria-invalid={!!validationErrors.description}
+                aria-describedby={
+                  validationErrors.description ? "description-error" : undefined
+                }
+                className={validationErrors.description ? "border-red-500" : ""}
               />
+              {validationErrors.description && (
+                <p id="description-error" className="text-sm text-red-500 mt-1">
+                  {validationErrors.description}
+                </p>
+              )}
             </div>
             <div>
-              <Label htmlFor="agent-type">Agent Type</Label>
+              <Label htmlFor="agent-type">
+                Agent Type <span className="text-red-500">*</span>
+              </Label>
               <Select
                 value={formData.agentType}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, agentType: value })
-                }
+                onValueChange={(value) => {
+                  setFormData({ ...formData, agentType: value });
+                  if (validationErrors.agentType) {
+                    setValidationErrors({
+                      ...validationErrors,
+                      agentType: undefined,
+                    });
+                  }
+                }}
               >
-                <SelectTrigger>
+                <SelectTrigger
+                  aria-invalid={!!validationErrors.agentType}
+                  className={validationErrors.agentType ? "border-red-500" : ""}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1365,6 +1460,28 @@ export default function AIAgents() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Test Agent Panel */}
+      {agentForTest && (
+        <TestAgentPanel
+          agent={agentForTest}
+          open={testAgentOpen}
+          onOpenChange={setTestAgentOpen}
+        />
+      )}
+
+      {/* Agent Configuration Panel */}
+      {agentForConfig && (
+        <AgentConfigPanel
+          agent={agentForConfig}
+          open={configAgentOpen}
+          onOpenChange={setConfigAgentOpen}
+          onConfigUpdate={() => {
+            // Refetch agents to get updated data
+            window.location.reload();
+          }}
+        />
+      )}
     </main>
   );
 }

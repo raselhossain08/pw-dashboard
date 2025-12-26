@@ -54,7 +54,7 @@ const EMPTY_INTEGRATIONS = [
     category: "Payment Gateways" as IntegrationCategory,
     description: "Secure payment processing for your courses and subscriptions",
     status: "disconnected" as IntegrationStatus,
-    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Stripe_Logo%2C_revised_2016.svg/512px-Stripe_Logo%2C_revised_2016.svg.png",
+    logo: "https://cdn.simpleicons.org/stripe/635BFF",
   },
   {
     id: "paypal",
@@ -62,7 +62,7 @@ const EMPTY_INTEGRATIONS = [
     category: "Payment Gateways" as IntegrationCategory,
     description: "Global payments and payouts",
     status: "disconnected" as IntegrationStatus,
-    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/PayPal.svg/512px-PayPal.svg.png",
+    logo: "https://cdn.simpleicons.org/paypal/00457C",
   },
   {
     id: "smtp",
@@ -70,7 +70,7 @@ const EMPTY_INTEGRATIONS = [
     category: "Communication" as IntegrationCategory,
     description: "Transactional emails and notifications",
     status: "disconnected" as IntegrationStatus,
-    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7e/Gmail_icon_%282020%29.svg/512px-Gmail_icon_%282020%29.svg.png",
+    logo: "https://cdn.simpleicons.org/gmail/EA4335",
   },
   {
     id: "twilio",
@@ -78,7 +78,7 @@ const EMPTY_INTEGRATIONS = [
     category: "Communication" as IntegrationCategory,
     description: "SMS and voice notifications",
     status: "disconnected" as IntegrationStatus,
-    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/73/Twilio_logo_red.svg/512px-Twilio_logo_red.svg.png",
+    logo: "https://cdn.simpleicons.org/twilio/F22F46",
   },
   {
     id: "facebook-ads",
@@ -86,7 +86,7 @@ const EMPTY_INTEGRATIONS = [
     category: "Marketing" as IntegrationCategory,
     description: "Campaign tracking and conversion",
     status: "disconnected" as IntegrationStatus,
-    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6c/Facebook_Logo_2023.png/512px-Facebook_Logo_2023.png",
+    logo: "https://cdn.simpleicons.org/facebook/0866FF",
   },
   {
     id: "google-analytics",
@@ -94,7 +94,7 @@ const EMPTY_INTEGRATIONS = [
     category: "Analytics" as IntegrationCategory,
     description: "Website analytics and performance",
     status: "disconnected" as IntegrationStatus,
-    logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/0/0b/Google_Analytics_logo.png/512px-Google_Analytics_logo.png",
+    logo: "https://cdn.simpleicons.org/googleanalytics/E37400",
   },
 ];
 
@@ -110,6 +110,10 @@ export default function Integrations() {
     testConnection,
     updateConfig,
     deleteIntegration,
+    createIntegration,
+    generateApiKey,
+    saveWebhooks,
+    getWebhooks,
   } = useIntegrations();
 
   const [search, setSearch] = React.useState("");
@@ -181,9 +185,53 @@ export default function Integrations() {
     setConfigOpen(true);
   };
 
+  // Add Integration state
+  const [selectedAddId, setSelectedAddId] = React.useState<string | null>(null);
+  const [addSearch, setAddSearch] = React.useState("");
+
+  // Handle add integration
+  const handleAddIntegration = async () => {
+    if (!selectedAddId) return;
+
+    const integrationToAdd = EMPTY_INTEGRATIONS.find(
+      (i) => i.id === selectedAddId
+    );
+    if (!integrationToAdd) return;
+
+    // Check if already exists
+    const exists = integrations.find((i) => i.slug === integrationToAdd.id);
+    if (exists) {
+      showToast({
+        type: "error",
+        message: "This integration is already added",
+      });
+      return;
+    }
+
+    try {
+      await createIntegration({
+        name: integrationToAdd.name,
+        slug: integrationToAdd.id,
+        category: integrationToAdd.category,
+        description: integrationToAdd.description,
+        logo: integrationToAdd.logo,
+        status: "disconnected",
+      } as any);
+      setAddOpen(false);
+      setSelectedAddId(null);
+    } catch (error) {
+      // Error handled by hook
+    }
+  };
+
   // Handle save config
   const handleSaveConfig = async () => {
     if (!selectedIntegration) return;
+
+    if (!configData.apiKey) {
+      showToast({ type: "error", message: "API Key is required" });
+      return;
+    }
 
     try {
       await updateConfig(selectedIntegration.id, {
@@ -214,14 +262,17 @@ export default function Integrations() {
     }
   };
 
-  const handleGenerateApiKey = () => {
-    // Generate a random API key
-    const key = `pk_${Math.random()
-      .toString(36)
-      .substr(2, 9)}_${Date.now().toString(36)}`;
-    setGeneratedApiKey(key);
-    setApiKeyCopied(false);
-    setApiKeyOpen(true);
+  const handleGenerateApiKey = async () => {
+    try {
+      const key = await generateApiKey();
+      if (key) {
+        setGeneratedApiKey(key);
+        setApiKeyCopied(false);
+        setApiKeyOpen(true);
+      }
+    } catch (error) {
+      // Error handled by hook
+    }
   };
 
   const handleCopyApiKey = async () => {
@@ -235,7 +286,7 @@ export default function Integrations() {
     }
   };
 
-  const handleSaveWebhook = () => {
+  const handleSaveWebhook = async () => {
     if (!webhookUrl) {
       showToast({ type: "error", message: "Please enter a webhook URL" });
       return;
@@ -244,11 +295,25 @@ export default function Integrations() {
       showToast({ type: "error", message: "Please select at least one event" });
       return;
     }
-    showToast({ type: "success", message: "Webhook configured successfully" });
-    setWebhooksOpen(false);
-    setWebhookUrl("");
-    setWebhookEvents([]);
+
+    try {
+      await saveWebhooks({ url: webhookUrl, events: webhookEvents });
+      setWebhooksOpen(false);
+    } catch (error) {
+      // Error handled by hook
+    }
   };
+
+  React.useEffect(() => {
+    if (webhooksOpen) {
+      getWebhooks().then((config) => {
+        if (config) {
+          setWebhookUrl(config.url || "");
+          setWebhookEvents(config.events || []);
+        }
+      });
+    }
+  }, [webhooksOpen, getWebhooks]);
 
   const toggleWebhookEvent = (event: string) => {
     setWebhookEvents((prev) =>
@@ -277,8 +342,7 @@ export default function Integrations() {
   };
 
   // Use demo data as fallback if no integrations loaded
-  const displayIntegrations =
-    integrations.length > 0 ? integrations : (EMPTY_INTEGRATIONS as any);
+  const displayIntegrations = integrations;
   const loading = isLoading;
 
   const filtered = displayIntegrations.filter((it: Integration) => {
@@ -429,192 +493,241 @@ export default function Integrations() {
         </nav>
       </div>
 
-      {(
-        [
-          IntegrationCategory.PAYMENT_GATEWAYS,
-          IntegrationCategory.COMMUNICATION,
-          IntegrationCategory.MARKETING,
-          IntegrationCategory.ANALYTICS,
-          IntegrationCategory.DEVELOPER_TOOLS,
-        ] as const
-      ).map((section) => {
-        const Icon = iconForCategory(section);
-        const items = filtered.filter(
-          (i: Integration) => i.category === section
-        );
-        if (!items.length && activeTab !== "All Integrations") return null;
-        return (
-          <div key={section} className="mb-12">
-            <h3 className="text-xl font-semibold text-secondary mb-6">
-              {section}
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {loading
-                ? // Loading skeleton
-                  Array.from({ length: 3 }).map((_, idx) => (
-                    <div
-                      key={idx}
-                      className="bg-card rounded-xl p-6 shadow-sm border border-gray-100"
-                    >
-                      <div className="flex justify-between items-start mb-4">
-                        <div className="flex items-center space-x-3 flex-1">
-                          <div className="w-12 h-12 bg-gray-200 rounded-lg animate-pulse" />
-                          <div className="flex-1">
-                            <div className="h-4 bg-gray-200 rounded w-24 mb-2 animate-pulse" />
-                            <div className="h-3 bg-gray-200 rounded w-full animate-pulse" />
-                          </div>
-                        </div>
-                        <div className="w-16 h-5 bg-gray-200 rounded-full animate-pulse" />
-                      </div>
-                      <div className="h-20 bg-gray-100 rounded mb-4 animate-pulse" />
-                      <div className="flex space-x-3">
-                        <div className="flex-1 h-9 bg-gray-200 rounded animate-pulse" />
-                        <div className="flex-1 h-9 bg-gray-200 rounded animate-pulse" />
-                      </div>
-                    </div>
-                  ))
-                : displayIntegrations
-                    .filter((i: Integration) => i.category === section)
-                    .filter((i: Integration) => filtered.includes(i))
-                    .map((i: Integration) => (
+      {/* Empty State */}
+      {!loading && integrations.length === 0 && !search && (
+        <div className="text-center py-12">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Plug className="w-8 h-8 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-medium text-secondary mb-2">
+            No integrations yet
+          </h3>
+          <p className="text-gray-500 mb-6 max-w-sm mx-auto">
+            Connect your favorite tools to automate your workflow and sync data
+            across platforms.
+          </p>
+          <Button onClick={() => setAddOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" /> Add Integration
+          </Button>
+        </div>
+      )}
+
+      {/* No Search Results */}
+      {!loading && integrations.length > 0 && filtered.length === 0 && (
+        <div className="text-center py-12">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <SearchIcon className="w-8 h-8 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-medium text-secondary mb-2">
+            No results found
+          </h3>
+          <p className="text-gray-500">
+            No integrations match your search query "{search}".
+          </p>
+        </div>
+      )}
+
+      {(loading || filtered.length > 0) &&
+        (
+          [
+            IntegrationCategory.PAYMENT_GATEWAYS,
+            IntegrationCategory.COMMUNICATION,
+            IntegrationCategory.MARKETING,
+            IntegrationCategory.ANALYTICS,
+            IntegrationCategory.DEVELOPER_TOOLS,
+          ] as const
+        ).map((section) => {
+          const Icon = iconForCategory(section);
+          const items = filtered.filter(
+            (i: Integration) => i.category === section
+          );
+          if (!items.length && activeTab !== "All Integrations") return null;
+          return (
+            <div key={section} className="mb-12">
+              <h3 className="text-xl font-semibold text-secondary mb-6">
+                {section}
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {loading
+                  ? // Loading skeleton
+                    Array.from({ length: 3 }).map((_, idx) => (
                       <div
-                        key={i.id}
-                        className="integration-card bg-card rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-200"
+                        key={idx}
+                        className="bg-card rounded-xl p-6 shadow-sm border border-gray-100"
                       >
                         <div className="flex justify-between items-start mb-4">
                           <div className="flex items-center space-x-3 flex-1">
-                            <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                              {i.logo ? (
-                                <Image
-                                  src={i.logo}
-                                  alt={i.name}
-                                  width={32}
-                                  height={32}
-                                  unoptimized
-                                  className="object-contain"
-                                />
-                              ) : (
-                                <Icon className="w-6 h-6 text-primary" />
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className="font-semibold text-secondary truncate">
-                                {i.name}
-                              </h4>
-                              <p className="text-xs text-gray-600 line-clamp-1">
-                                {i.description}
-                              </p>
+                            <div className="w-12 h-12 bg-gray-200 rounded-lg animate-pulse" />
+                            <div className="flex-1">
+                              <div className="h-4 bg-gray-200 rounded w-24 mb-2 animate-pulse" />
+                              <div className="h-3 bg-gray-200 rounded w-full animate-pulse" />
                             </div>
                           </div>
-                          <span
-                            className={`flex items-center gap-1 text-white text-xs px-2 py-1 rounded-full ${statusChip(
-                              i.status
-                            )} shrink-0 ml-2`}
-                          >
-                            {statusIcon(i.status)}
-                            {i.status === "connected"
-                              ? "Active"
-                              : i.status === "pending"
-                              ? "Pending"
-                              : "Inactive"}
-                          </span>
+                          <div className="w-16 h-5 bg-gray-200 rounded-full animate-pulse" />
                         </div>
-
-                        {i.stats && i.stats.length > 0 && (
-                          <div className="bg-gray-50 rounded-lg p-3 mb-4">
-                            <div className="grid grid-cols-2 gap-2">
-                              {i.stats
-                                .slice(0, 4)
-                                .map((s: IntegrationStat, idx: number) => (
-                                  <div key={idx} className="text-sm">
-                                    <span className="text-gray-600 text-xs">
-                                      {s.label}:
-                                    </span>
-                                    <span className="font-medium ml-1">
-                                      {s.value}
-                                    </span>
-                                  </div>
-                                ))}
-                            </div>
-                          </div>
-                        )}
-
-                        <div className="flex gap-2">
-                          {i.status === "connected" ? (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="flex-1"
-                                onClick={() => handleConfigureClick(i)}
-                                disabled={actionLoading === i.id}
-                              >
-                                <Settings className="w-3 h-3 mr-1" />
-                                Configure
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleTestConnection(i.id)}
-                                disabled={actionLoading === i.id}
-                              >
-                                <RefreshCw
-                                  className={`w-3 h-3 mr-1 ${
-                                    actionLoading === i.id ? "animate-spin" : ""
-                                  }`}
-                                />
-                                Test
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => handleDisconnect(i.id)}
-                                disabled={actionLoading === i.id}
-                              >
-                                {actionLoading === i.id ? (
-                                  <Loader2 className="w-3 h-3 animate-spin" />
-                                ) : (
-                                  <XCircle className="w-3 h-3" />
-                                )}
-                              </Button>
-                            </>
-                          ) : (
-                            <>
-                              <Button
-                                size="sm"
-                                className="flex-1"
-                                onClick={() => handleConfigureClick(i)}
-                                disabled={actionLoading === i.id}
-                              >
-                                {i.status === "pending"
-                                  ? "Setup Now"
-                                  : "Connect"}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleDeleteClick(i)}
-                                disabled={actionLoading === i.id}
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </Button>
-                            </>
-                          )}
+                        <div className="h-20 bg-gray-100 rounded mb-4 animate-pulse" />
+                        <div className="flex space-x-3">
+                          <div className="flex-1 h-9 bg-gray-200 rounded animate-pulse" />
+                          <div className="flex-1 h-9 bg-gray-200 rounded animate-pulse" />
                         </div>
                       </div>
-                    ))}
+                    ))
+                  : displayIntegrations
+                      .filter((i: Integration) => i.category === section)
+                      .filter((i: Integration) => filtered.includes(i))
+                      .map((i: Integration) => (
+                        <div
+                          key={i.id}
+                          className="integration-card bg-card rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-lg transition-all duration-200"
+                        >
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="flex items-center space-x-3 flex-1">
+                              <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
+                                {i.logo ? (
+                                  <Image
+                                    src={i.logo}
+                                    alt={i.name}
+                                    width={32}
+                                    height={32}
+                                    unoptimized
+                                    className="object-contain"
+                                  />
+                                ) : (
+                                  <Icon className="w-6 h-6 text-primary" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-semibold text-secondary truncate">
+                                  {i.name}
+                                </h4>
+                                <p className="text-xs text-gray-600 line-clamp-1">
+                                  {i.description}
+                                </p>
+                              </div>
+                            </div>
+                            <span
+                              className={`flex items-center gap-1 text-white text-xs px-2 py-1 rounded-full ${statusChip(
+                                i.status
+                              )} shrink-0 ml-2`}
+                            >
+                              {statusIcon(i.status)}
+                              {i.status === "connected"
+                                ? "Active"
+                                : i.status === "pending"
+                                ? "Pending"
+                                : "Inactive"}
+                            </span>
+                          </div>
+
+                          {i.stats && i.stats.length > 0 && (
+                            <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                              <div className="grid grid-cols-2 gap-2">
+                                {i.stats
+                                  .slice(0, 4)
+                                  .map((s: IntegrationStat, idx: number) => (
+                                    <div key={idx} className="text-sm">
+                                      <span className="text-gray-600 text-xs">
+                                        {s.label}:
+                                      </span>
+                                      <span className="font-medium ml-1">
+                                        {s.value}
+                                      </span>
+                                    </div>
+                                  ))}
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex gap-2">
+                            {i.status === "connected" ? (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="flex-1"
+                                  onClick={() => handleConfigureClick(i)}
+                                  disabled={actionLoading === i.id}
+                                  aria-label={`Configure ${i.name}`}
+                                >
+                                  <Settings className="w-3 h-3 mr-1" />
+                                  Configure
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleTestConnection(i.id)}
+                                  disabled={actionLoading === i.id}
+                                  aria-label={`Test connection for ${i.name}`}
+                                >
+                                  <RefreshCw
+                                    className={`w-3 h-3 mr-1 ${
+                                      actionLoading === i.id
+                                        ? "animate-spin"
+                                        : ""
+                                    }`}
+                                  />
+                                  Test
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  onClick={() => handleDisconnect(i.id)}
+                                  disabled={actionLoading === i.id}
+                                  aria-label={`Disconnect ${i.name}`}
+                                >
+                                  {actionLoading === i.id ? (
+                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                  ) : (
+                                    <XCircle className="w-3 h-3" />
+                                  )}
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <Button
+                                  size="sm"
+                                  className="flex-1"
+                                  onClick={() => handleConfigureClick(i)}
+                                  disabled={actionLoading === i.id}
+                                >
+                                  {i.status === "pending"
+                                    ? "Setup Now"
+                                    : "Connect"}
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleDeleteClick(i)}
+                                  disabled={actionLoading === i.id}
+                                  aria-label={`Delete ${i.name} integration`}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
 
       <div className="bg-card rounded-xl p-6 shadow-sm border border-gray-100">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-lg font-semibold text-secondary">
             API Documentation
           </h3>
-          <Button onClick={handleGenerateApiKey}>
-            <Plug className="w-4 h-4 mr-2" /> Generate API Key
+          <Button
+            onClick={handleGenerateApiKey}
+            disabled={actionLoading === "generate-key"}
+          >
+            {actionLoading === "generate-key" ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Plug className="w-4 h-4 mr-2" />
+            )}
+            Generate API Key
           </Button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -696,46 +809,80 @@ export default function Integrations() {
                   id="search-integrations"
                   className="pl-9"
                   placeholder="Search available integrations..."
+                  value={addSearch}
+                  onChange={(e) => setAddSearch(e.target.value)}
                 />
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto">
-              {EMPTY_INTEGRATIONS.map((opt) => (
-                <div
-                  key={opt.id}
-                  className="border border-gray-200 rounded-lg p-4 cursor-pointer hover:border-primary hover:bg-primary/5 transition-all"
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                      {opt.logo ? (
-                        <Image
-                          src={opt.logo}
-                          alt={opt.name}
-                          width={24}
-                          height={24}
-                          unoptimized
-                          className="object-contain"
-                        />
-                      ) : (
-                        <Plug className="w-5 h-5 text-primary" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-secondary">{opt.name}</h4>
-                      <p className="text-sm text-gray-600 truncate">
-                        {opt.description}
-                      </p>
+              {EMPTY_INTEGRATIONS.filter(
+                (opt) =>
+                  opt.name.toLowerCase().includes(addSearch.toLowerCase()) ||
+                  opt.description
+                    .toLowerCase()
+                    .includes(addSearch.toLowerCase())
+              ).map((opt) => {
+                const isAdded = integrations.some((i) => i.slug === opt.id);
+                return (
+                  <div
+                    key={opt.id}
+                    onClick={() => !isAdded && setSelectedAddId(opt.id)}
+                    className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                      selectedAddId === opt.id
+                        ? "border-primary bg-primary/5 ring-1 ring-primary"
+                        : "border-gray-200 hover:border-primary hover:bg-gray-50"
+                    } ${
+                      isAdded ? "opacity-50 cursor-not-allowed bg-gray-50" : ""
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
+                        {opt.logo ? (
+                          <Image
+                            src={opt.logo}
+                            alt={opt.name}
+                            width={24}
+                            height={24}
+                            unoptimized
+                            className="object-contain"
+                          />
+                        ) : (
+                          <Plug className="w-5 h-5 text-primary" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start">
+                          <h4 className="font-medium text-secondary">
+                            {opt.name}
+                          </h4>
+                          {isAdded && (
+                            <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
+                              Added
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600 truncate">
+                          {opt.description}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setAddOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={() => setAddOpen(false)}>
-                <Plus className="w-4 h-4 mr-1" />
+              <Button
+                onClick={handleAddIntegration}
+                disabled={!selectedAddId || actionLoading === "create"}
+              >
+                {actionLoading === "create" ? (
+                  <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                ) : (
+                  <Plus className="w-4 h-4 mr-1" />
+                )}
                 Add Selected
               </Button>
             </DialogFooter>
@@ -918,8 +1065,16 @@ export default function Integrations() {
             </div>
           </div>
           <DialogFooter className="sm:justify-between">
-            <Button variant="outline" onClick={handleGenerateApiKey}>
-              <RefreshCw className="w-4 h-4 mr-1" />
+            <Button
+              variant="outline"
+              onClick={handleGenerateApiKey}
+              disabled={actionLoading === "generate-key"}
+            >
+              <RefreshCw
+                className={`w-4 h-4 mr-1 ${
+                  actionLoading === "generate-key" ? "animate-spin" : ""
+                }`}
+              />
               Regenerate
             </Button>
             <Button onClick={() => setApiKeyOpen(false)}>Done</Button>
@@ -990,8 +1145,15 @@ export default function Integrations() {
             <Button variant="outline" onClick={() => setWebhooksOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveWebhook}>
-              <CheckCircle2 className="w-4 h-4 mr-1" />
+            <Button
+              onClick={handleSaveWebhook}
+              disabled={actionLoading === "save-webhooks"}
+            >
+              {actionLoading === "save-webhooks" ? (
+                <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+              ) : (
+                <CheckCircle2 className="w-4 h-4 mr-1" />
+              )}
               Save Configuration
             </Button>
           </DialogFooter>

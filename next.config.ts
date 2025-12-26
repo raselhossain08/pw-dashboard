@@ -51,6 +51,21 @@ const nextConfig = {
         hostname: 'personalwings.com',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'upload.wikimedia.org',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn.simpleicons.org',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'www.vectorlogo.zone',
+        pathname: '/**',
+      },
     ],
   },
 };

@@ -302,6 +302,65 @@ export function useIntegrations() {
         [push, fetchIntegrations, fetchStats]
     );
 
+    // Generate API Key
+    const generateApiKey = useCallback(async () => {
+        setActionLoading("generate-key");
+        try {
+            const { apiKey } = await integrationsService.generateApiKey();
+            push({
+                message: "API Key generated successfully",
+                type: "success",
+            });
+            return apiKey;
+        } catch (error: any) {
+            const errorMsg =
+                error?.response?.data?.message ||
+                error?.message ||
+                "Failed to generate API Key";
+            push({
+                message: errorMsg,
+                type: "error",
+            });
+            throw error;
+        } finally {
+            setActionLoading(null);
+        }
+    }, [push]);
+
+    // Save Webhooks
+    const saveWebhooks = useCallback(async (config: { url: string; events: string[] }) => {
+        setActionLoading("save-webhooks");
+        try {
+            await integrationsService.saveWebhooks(config);
+            push({
+                message: "Webhook configuration saved",
+                type: "success",
+            });
+        } catch (error: any) {
+            const errorMsg =
+                error?.response?.data?.message ||
+                error?.message ||
+                "Failed to save webhook configuration";
+            push({
+                message: errorMsg,
+                type: "error",
+            });
+            throw error;
+        } finally {
+            setActionLoading(null);
+        }
+    }, [push]);
+
+    // Get Webhooks
+    const getWebhooks = useCallback(async () => {
+        try {
+            return await integrationsService.getWebhooks();
+        } catch (error: any) {
+            console.error("Failed to fetch webhooks:", error);
+            return { url: "", events: [] };
+        }
+    }, []);
+
     // Refresh all data
     const refreshAll = useCallback(async () => {
         await Promise.all([fetchIntegrations(), fetchStats()]);
@@ -329,6 +388,9 @@ export function useIntegrations() {
         disconnectIntegration,
         testConnection,
         deleteIntegration,
+        generateApiKey,
+        saveWebhooks,
+        getWebhooks,
         refreshAll,
     };
 }

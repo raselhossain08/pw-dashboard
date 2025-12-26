@@ -8,16 +8,21 @@ import {
     UpdateEnrollmentDto,
     EnrollmentStats,
     CourseEnrollmentDistribution,
+    EnrollmentTrendPoint,
 } from "@/services/enrollments.service";
 import { useToast } from "@/context/ToastContext";
 
 export function useEnrollments() {
     const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
     const [stats, setStats] = useState<EnrollmentStats | null>(null);
-    const [distribution, setDistribution] = useState<CourseEnrollmentDistribution[]>([]);
+    const [distribution, setDistribution] = useState<
+        CourseEnrollmentDistribution[]
+    >([]);
+    const [trends, setTrends] = useState<EnrollmentTrendPoint[]>([]);
     const [loading, setLoading] = useState(false);
     const [statsLoading, setStatsLoading] = useState(false);
     const [distributionLoading, setDistributionLoading] = useState(false);
+    const [trendsLoading, setTrendsLoading] = useState(false);
     const [total, setTotal] = useState(0);
     const { push } = useToast();
 
@@ -42,7 +47,8 @@ export function useEnrollments() {
             } catch (error: any) {
                 push({
                     type: "error",
-                    message: error.response?.data?.message || "Failed to fetch enrollments",
+                    message:
+                        error.response?.data?.message || "Failed to fetch enrollments",
                 });
                 throw error;
             } finally {
@@ -62,7 +68,8 @@ export function useEnrollments() {
         } catch (error: any) {
             push({
                 type: "error",
-                message: error.response?.data?.message || "Failed to fetch enrollment stats",
+                message:
+                    error.response?.data?.message || "Failed to fetch enrollment stats",
             });
             throw error;
         } finally {
@@ -80,13 +87,36 @@ export function useEnrollments() {
         } catch (error: any) {
             push({
                 type: "error",
-                message: error.response?.data?.message || "Failed to fetch course distribution",
+                message:
+                    error.response?.data?.message ||
+                    "Failed to fetch course distribution",
             });
             throw error;
         } finally {
             setDistributionLoading(false);
         }
     }, [push]);
+
+    const fetchTrends = useCallback(
+        async (range: "7d" | "30d" | "90d" | "year" = "30d") => {
+            setTrendsLoading(true);
+            try {
+                const data = await enrollmentsService.getAdminTrends(range);
+                setTrends(data);
+                return data;
+            } catch (error: any) {
+                push({
+                    type: "error",
+                    message:
+                        error.response?.data?.message || "Failed to fetch enrollment trends",
+                });
+                throw error;
+            } finally {
+                setTrendsLoading(false);
+            }
+        },
+        [push]
+    );
 
     // Get enrollment by ID
     const getEnrollmentById = useCallback(
@@ -97,7 +127,8 @@ export function useEnrollments() {
             } catch (error: any) {
                 push({
                     type: "error",
-                    message: error.response?.data?.message || "Failed to fetch enrollment",
+                    message:
+                        error.response?.data?.message || "Failed to fetch enrollment",
                 });
                 throw error;
             }
@@ -118,7 +149,8 @@ export function useEnrollments() {
             } catch (error: any) {
                 push({
                     type: "error",
-                    message: error.response?.data?.message || "Failed to create enrollment",
+                    message:
+                        error.response?.data?.message || "Failed to create enrollment",
                 });
                 throw error;
             }
@@ -139,7 +171,8 @@ export function useEnrollments() {
             } catch (error: any) {
                 push({
                     type: "error",
-                    message: error.response?.data?.message || "Failed to update enrollment",
+                    message:
+                        error.response?.data?.message || "Failed to update enrollment",
                 });
                 throw error;
             }
@@ -159,7 +192,8 @@ export function useEnrollments() {
             } catch (error: any) {
                 push({
                     type: "error",
-                    message: error.response?.data?.message || "Failed to delete enrollment",
+                    message:
+                        error.response?.data?.message || "Failed to delete enrollment",
                 });
                 throw error;
             }
@@ -179,7 +213,8 @@ export function useEnrollments() {
             } catch (error: any) {
                 push({
                     type: "error",
-                    message: error.response?.data?.message || "Failed to delete enrollments",
+                    message:
+                        error.response?.data?.message || "Failed to delete enrollments",
                 });
                 throw error;
             }
@@ -200,7 +235,8 @@ export function useEnrollments() {
             } catch (error: any) {
                 push({
                     type: "error",
-                    message: error.response?.data?.message || "Failed to approve enrollment",
+                    message:
+                        error.response?.data?.message || "Failed to approve enrollment",
                 });
                 throw error;
             }
@@ -221,7 +257,8 @@ export function useEnrollments() {
             } catch (error: any) {
                 push({
                     type: "error",
-                    message: error.response?.data?.message || "Failed to cancel enrollment",
+                    message:
+                        error.response?.data?.message || "Failed to cancel enrollment",
                 });
                 throw error;
             }
@@ -241,8 +278,8 @@ export function useEnrollments() {
                 const url = window.URL.createObjectURL(blob);
                 const link = document.createElement("a");
                 link.href = url;
-                link.download = `enrollments-${new Date().toISOString().split("T")[0]}.${params.format || "csv"
-                    }`;
+                link.download = `enrollments-${new Date().toISOString().split("T")[0]
+                    }.${params.format || "csv"}`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
@@ -254,7 +291,8 @@ export function useEnrollments() {
             } catch (error: any) {
                 push({
                     type: "error",
-                    message: error.response?.data?.message || "Failed to export enrollments",
+                    message:
+                        error.response?.data?.message || "Failed to export enrollments",
                 });
                 throw error;
             }
@@ -266,13 +304,16 @@ export function useEnrollments() {
         enrollments,
         stats,
         distribution,
+        trends,
         loading,
         statsLoading,
         distributionLoading,
+        trendsLoading,
         total,
         fetchEnrollments,
         fetchStats,
         fetchDistribution,
+        fetchTrends,
         getEnrollmentById,
         createEnrollment,
         updateEnrollment,

@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import { useActivityLogsStore } from '@/store/activityLogsStore';
 import { activityLogsService } from '@/services/activity-logs.service';
 import type { LogFilters } from '@/types/activity-logs';
@@ -21,7 +21,7 @@ export const useActivityLogs = () => {
                 store.setActivityLogs(response.data, response.pagination);
                 if (filters) store.setActivityFilters(filters);
             } catch (error: any) {
-                const errorMsg = error?.response?.data?.message || 'Failed to fetch activity logs';
+                const errorMsg = error?.message || 'Failed to fetch activity logs';
                 store.setActivityError(errorMsg);
                 push({ message: errorMsg, type: 'error' });
             } finally {
@@ -56,7 +56,7 @@ export const useActivityLogs = () => {
                 store.setErrorLogs(response.data, response.pagination);
                 if (filters) store.setErrorFilters(filters);
             } catch (error: any) {
-                const errorMsg = error?.response?.data?.message || 'Failed to fetch error logs';
+                const errorMsg = error?.message || 'Failed to fetch error logs';
                 store.setErrorLogsError(errorMsg);
                 push({ message: errorMsg, type: 'error' });
             } finally {
@@ -88,7 +88,7 @@ export const useActivityLogs = () => {
                 store.setAiLogs(response.data, response.pagination);
                 if (filters) store.setAiFilters(filters);
             } catch (error: any) {
-                const errorMsg = error?.response?.data?.message || 'Failed to fetch AI logs';
+                const errorMsg = error?.message || 'Failed to fetch AI logs';
                 store.setAiError(errorMsg);
                 push({ message: errorMsg, type: 'error' });
             } finally {
@@ -120,7 +120,7 @@ export const useActivityLogs = () => {
                 store.setChatLogs(response.data, response.pagination);
                 if (filters) store.setChatFilters(filters);
             } catch (error: any) {
-                const errorMsg = error?.response?.data?.message || 'Failed to fetch chat logs';
+                const errorMsg = error?.message || 'Failed to fetch chat logs';
                 store.setChatError(errorMsg);
                 push({ message: errorMsg, type: 'error' });
             } finally {
@@ -152,7 +152,7 @@ export const useActivityLogs = () => {
                 store.setSystemLogs(response.data, response.pagination);
                 if (filters) store.setSystemFilters(filters);
             } catch (error: any) {
-                const errorMsg = error?.response?.data?.message || 'Failed to fetch system logs';
+                const errorMsg = error?.message || 'Failed to fetch system logs';
                 store.setSystemError(errorMsg);
                 push({ message: errorMsg, type: 'error' });
             } finally {

@@ -122,6 +122,7 @@ class UploadsService {
         page?: number;
         limit?: number;
         type?: string;
+        sort?: string;
     } = {}): Promise<FileListResponse> {
         try {
             const response = await apiClient.get<any>("/uploads", { params });
@@ -145,7 +146,7 @@ class UploadsService {
             return result;
         } catch (error) {
             console.error('❌ Error fetching user files:', error);
-            return { files: [], total: 0, page: 1, pages: 0 };
+            throw error;
         }
     }
 
@@ -197,6 +198,8 @@ class UploadsService {
         q: string;
         type?: string;
         limit?: number;
+        sort?: string;
+        page?: number;
     }): Promise<UploadFile[]> {
         try {
             const response = await apiClient.get<ApiResponse<UploadFile[]>>("/uploads/search/query", { params });

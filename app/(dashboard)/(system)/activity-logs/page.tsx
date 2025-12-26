@@ -312,12 +312,22 @@ export default function ActivityLogsPage() {
 
   // Sort handler
   const handleSort = (field: string) => {
+    let newField = field;
+    let newOrder: "asc" | "desc" = "desc";
+
     if (sortField === field) {
-      setSortOrder(sortOrder === "asc" ? "desc" : "asc");
-    } else {
-      setSortField(field);
-      setSortOrder("desc");
+      newOrder = sortOrder === "asc" ? "desc" : "asc";
     }
+
+    setSortField(newField);
+    setSortOrder(newOrder);
+
+    const filters = {
+      ...getCurrentFilters(),
+      sortField: newField,
+      sortOrder: newOrder,
+    };
+    handleApplyFilters(filters);
   };
 
   // Export in different formats
@@ -495,8 +505,19 @@ export default function ActivityLogsPage() {
     }
   };
 
-  const formatTime = (date: string) => {
-    return formatDistanceToNow(new Date(date), { addSuffix: true });
+  const formatTime = (date: string | undefined | null) => {
+    if (!date) return "N/A";
+    try {
+      const dateObj = new Date(date);
+      if (isNaN(dateObj.getTime())) {
+        console.warn("Invalid date format received:", date);
+        return "N/A";
+      }
+      return formatDistanceToNow(dateObj, { addSuffix: true });
+    } catch (error) {
+      console.error("Error formatting date:", error, date);
+      return "N/A";
+    }
   };
 
   const getLevelColor = (level: string) => {

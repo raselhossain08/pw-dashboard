@@ -69,6 +69,13 @@ export interface EnrollmentStats {
     completionRate: number;
 }
 
+export interface EnrollmentTrendPoint {
+    date: string;
+    enrollments: number;
+    completions: number;
+    cancellations: number;
+}
+
 export interface CourseEnrollmentDistribution {
     courseId: string;
     courseName: string;
@@ -94,37 +101,46 @@ class EnrollmentsService {
         sortBy?: string;
         sortOrder?: "asc" | "desc";
     } = {}): Promise<EnrollmentsResponse> {
-        const response = await apiClient.get("/enrollments/admin/all", { params });
+        const response = await apiClient.get<EnrollmentsResponse>("/enrollments/admin/all", { params });
         return response.data;
     }
 
     // Admin - Get enrollment statistics
     async getEnrollmentStats(): Promise<EnrollmentStats> {
-        const response = await apiClient.get("/enrollments/admin/stats");
+        const response = await apiClient.get<EnrollmentStats>("/enrollments/admin/stats");
         return response.data;
     }
 
     // Admin - Get course enrollment distribution
     async getCourseDistribution(): Promise<CourseEnrollmentDistribution[]> {
-        const response = await apiClient.get("/enrollments/admin/distribution");
+        const response = await apiClient.get<CourseEnrollmentDistribution[]>("/enrollments/admin/distribution");
+        return response.data;
+    }
+
+    async getAdminTrends(
+        range: "7d" | "30d" | "90d" | "year" = "30d"
+    ): Promise<EnrollmentTrendPoint[]> {
+        const response = await apiClient.get<EnrollmentTrendPoint[]>("/enrollments/admin/trends", {
+            params: { range },
+        });
         return response.data;
     }
 
     // Admin - Get enrollment by ID
     async getEnrollmentById(id: string): Promise<Enrollment> {
-        const response = await apiClient.get(`/enrollments/admin/${id}`);
+        const response = await apiClient.get<Enrollment>(`/enrollments/admin/${id}`);
         return response.data;
     }
 
     // Admin - Create enrollment
     async createEnrollment(data: CreateEnrollmentDto): Promise<Enrollment> {
-        const response = await apiClient.post("/enrollments/admin", data);
+        const response = await apiClient.post<Enrollment>("/enrollments/admin", data);
         return response.data;
     }
 
     // Admin - Update enrollment
     async updateEnrollment(id: string, data: UpdateEnrollmentDto): Promise<Enrollment> {
-        const response = await apiClient.patch(`/enrollments/admin/${id}`, data);
+        const response = await apiClient.patch<Enrollment>(`/enrollments/admin/${id}`, data);
         return response.data;
     }
 
@@ -140,13 +156,13 @@ class EnrollmentsService {
 
     // Admin - Approve pending enrollment
     async approveEnrollment(id: string): Promise<Enrollment> {
-        const response = await apiClient.patch(`/enrollments/admin/${id}/approve`);
+        const response = await apiClient.patch<Enrollment>(`/enrollments/admin/${id}/approve`);
         return response.data;
     }
 
     // Admin - Cancel enrollment
     async cancelEnrollment(id: string, reason?: string): Promise<Enrollment> {
-        const response = await apiClient.patch(`/enrollments/admin/${id}/cancel`, { reason });
+        const response = await apiClient.patch<Enrollment>(`/enrollments/admin/${id}/cancel`, { reason });
         return response.data;
     }
 
@@ -156,7 +172,7 @@ class EnrollmentsService {
         courseId?: string;
         status?: string;
     } = {}): Promise<Blob> {
-        const response = await apiClient.get("/enrollments/admin/export", {
+        const response = await apiClient.get<Blob>("/enrollments/admin/export", {
             params,
             responseType: "blob",
         });
@@ -169,7 +185,7 @@ class EnrollmentsService {
         page: number = 1,
         limit: number = 10
     ): Promise<EnrollmentsResponse> {
-        const response = await apiClient.get(`/enrollments/course/${courseId}/students`, {
+        const response = await apiClient.get<EnrollmentsResponse>(`/enrollments/course/${courseId}/students`, {
             params: { page, limit },
         });
         return response.data;
@@ -177,7 +193,7 @@ class EnrollmentsService {
 
     // Get course enrollment stats
     async getCourseStats(courseId: string): Promise<EnrollmentStats> {
-        const response = await apiClient.get(`/enrollments/course/${courseId}/stats`);
+        const response = await apiClient.get<EnrollmentStats>(`/enrollments/course/${courseId}/stats`);
         return response.data;
     }
 
@@ -187,13 +203,13 @@ class EnrollmentsService {
         page?: number;
         limit?: number;
     } = {}): Promise<EnrollmentsResponse> {
-        const response = await apiClient.get("/enrollments/my-enrollments", { params });
+        const response = await apiClient.get<EnrollmentsResponse>("/enrollments/my-enrollments", { params });
         return response.data;
     }
 
     // Enroll in a course
     async enroll(courseId: string, orderId?: string): Promise<Enrollment> {
-        const response = await apiClient.post("/enrollments", {
+        const response = await apiClient.post<Enrollment>("/enrollments", {
             courseId,
             orderId,
         });
@@ -205,7 +221,7 @@ class EnrollmentsService {
         courseId: string,
         data: UpdateProgressDto
     ): Promise<Enrollment> {
-        const response = await apiClient.patch(
+        const response = await apiClient.patch<Enrollment>(
             `/enrollments/course/${courseId}/progress`,
             data
         );
@@ -214,7 +230,7 @@ class EnrollmentsService {
 
     // Check enrollment
     async checkEnrollment(courseId: string): Promise<{ enrolled: boolean }> {
-        const response = await apiClient.get(
+        const response = await apiClient.get<{ enrolled: boolean }>(
             `/enrollments/course/${courseId}/check`
         );
         return response.data;
@@ -227,7 +243,7 @@ class EnrollmentsService {
 
     // Get user stats
     async getMyStats(): Promise<any> {
-        const response = await apiClient.get("/enrollments/my-stats");
+        const response = await apiClient.get<any>("/enrollments/my-stats");
         return response.data;
     }
 }

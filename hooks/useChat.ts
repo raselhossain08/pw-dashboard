@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useMemo } from "react";
 import { chatService, ChatConversation, ChatMessage } from "@/services/chat.service";
 import { useToast } from "@/context/ToastContext";
 import { useChatStore, Conversation, Message } from "@/store/chatStore";
 import { getProfile } from "@/services/auth.service";
 import type { Socket } from "socket.io-client";
 import { uploadService } from "@/services/upload.service";
+import { validateMessageContent, MessageRateLimiter, sanitizeHtml } from "@/lib/chat-utils";
 
 type Participant =
   | { _id: string; firstName?: string; lastName?: string; avatar?: string }
@@ -124,6 +125,7 @@ export function useChat() {
   const selfIdRef = useRef<string>("");
   const typingTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const rateLimiter = useMemo(() => new MessageRateLimiter(5, 5000), []);
 
   // Initialize socket connection
   useEffect(() => {
@@ -134,6 +136,7 @@ export function useChat() {
         const profile = await getProfile();
         if (!profile.success || !profile.data) {
           showToast({ message: "Failed to load profile", type: "error" });
+          setLoading(false);
           return;
         }
         const me = profile.data;
@@ -143,14 +146,30 @@ export function useChat() {
 
         socketInstance.on("connect", () => {
           if (!mounted) return;
+          console.log('[Chat] Socket connected successfully');
           setConnected(true);
+          setError(null);
           showToast({ message: "Connected to chat", type: "success" });
         });
 
-        socketInstance.on("disconnect", () => {
+        socketInstance.on("disconnect", (reason) => {
           if (!mounted) return;
+          console.log('[Chat] Socket disconnected:', reason);
           setConnected(false);
-          showToast({ message: "Disconnected from chat", type: "error" });
+          if (reason !== 'io client disconnect') {
+            showToast({ message: "Disconnected from chat", type: "error" });
+          }
+        });
+
+        socketInstance.on("connect_error", (error) => {
+          if (!mounted) return;
+          console.error('[Chat] Connection error:', error.message);
+          setConnected(false);
+          setError(`Connection failed: ${error.message}`);
+          showToast({
+            message: "Failed to connect to chat server",
+            type: "error"
+          });
         });
 
         socketInstance.on(
@@ -259,6 +278,34 @@ export function useChat() {
           setMessages(selectedConversationId, msgs);
           setMessagePage(selectedConversationId, 1);
           setHasMoreMessages(selectedConversationId, resp.messages.length >= 50);
+        } else if (resp.error) {
+          // Handle specific errors
+          if (resp.error.includes("Access denied") || resp.error.includes("Cannot access")) {
+            showToast({
+              message: "You don't have access to this conversation. It may have been deleted or you were removed.",
+              type: "error"
+            });
+            // Clear the selected conversation and remove it from the list
+            setSelectedConversation(null);
+            // Remove the conversation from the list
+            const updatedConversations = conversations.filter(c => c.id !== selectedConversationId);
+            setConversations(updatedConversations);
+
+            // Refresh the conversation list from the server to stay in sync
+            try {
+              const freshList = await chatService.getConversations();
+              if (freshList.data) {
+                const syncedList = freshList.data.conversations.map((c) =>
+                  toUiConversation(c, selfIdRef.current)
+                );
+                setConversations(syncedList);
+              }
+            } catch (refreshError) {
+              console.error("Failed to refresh conversations:", refreshError);
+            }
+          } else {
+            showToast({ message: resp.error, type: "error" });
+          }
         }
       } catch (error) {
         showToast({ message: "Failed to load messages", type: "error" });
@@ -298,6 +345,23 @@ export function useChat() {
   ) => {
     if (!content.trim() || !socket || !conversationId || isSending) return;
 
+    // Validate message content
+    const validation = validateMessageContent(content);
+    if (!validation.isValid) {
+      showToast({ message: validation.error || "Invalid message", type: "error" });
+      return;
+    }
+
+    // Check rate limit
+    const rateLimitCheck = rateLimiter.canSendMessage();
+    if (!rateLimitCheck.allowed) {
+      showToast({
+        message: `Please wait ${rateLimitCheck.retryAfter} seconds before sending another message`,
+        type: "error"
+      });
+      return;
+    }
+
     try {
       setSending(true);
       const now = new Date().toLocaleTimeString([], {
@@ -327,7 +391,33 @@ export function useChat() {
       if (!result.success) {
         // Remove optimistic message on error
         removeMessage(conversationId, optimisticMsg.id);
-        showToast({ message: result.error || "Failed to send message", type: "error" });
+
+        // Check if it's an access denied error
+        if (result.error && (result.error.includes("Access denied") || result.error.includes("Cannot access"))) {
+          showToast({
+            message: "You no longer have access to this conversation.",
+            type: "error"
+          });
+          // Clear the selected conversation and remove it from the list
+          setSelectedConversation(null);
+          const updatedConversations = conversations.filter(c => c.id !== conversationId);
+          setConversations(updatedConversations);
+
+          // Refresh the conversation list to stay in sync
+          try {
+            const freshList = await chatService.getConversations();
+            if (freshList.data) {
+              const syncedList = freshList.data.conversations.map((c) =>
+                toUiConversation(c, selfIdRef.current)
+              );
+              setConversations(syncedList);
+            }
+          } catch (refreshError) {
+            console.error("Failed to refresh conversations:", refreshError);
+          }
+        } else {
+          showToast({ message: result.error || "Failed to send message", type: "error" });
+        }
       } else if (result.message) {
         // Replace optimistic message with real one
         removeMessage(conversationId, optimisticMsg.id);
@@ -389,7 +479,7 @@ export function useChat() {
       setSending(true);
       const result = await chatService.createConversationSocket(socket, {
         title: title.trim(),
-        participants: [...participantIds, selfIdRef.current],
+        participants: participantIds,
         type: "direct",
       });
 
@@ -520,9 +610,67 @@ export function useChat() {
     }
   };
 
+  // Refresh conversations from server
+  const refreshConversations = async () => {
+    try {
+      setLoading(true);
+      const result = await chatService.getConversations();
+      if (result.data) {
+        const freshList = result.data.conversations.map((c) =>
+          toUiConversation(c, selfIdRef.current)
+        );
+        setConversations(freshList);
+        showToast({ message: "Conversations refreshed", type: "success" });
+      }
+    } catch (error) {
+      showToast({ message: "Failed to refresh conversations", type: "error" });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Archive conversation
+  const archiveConversation = async (conversationId: string, archived: boolean) => {
+    try {
+      const result = await chatService.archiveConversation(conversationId, archived);
+      if (result.success) {
+        updateConversation(conversationId, { archived });
+        showToast({
+          message: archived ? "Conversation archived" : "Conversation unarchived",
+          type: "success"
+        });
+      } else {
+        showToast({ message: result.error || "Failed to archive conversation", type: "error" });
+      }
+    } catch (error) {
+      showToast({ message: "Failed to archive conversation", type: "error" });
+    }
+  };
+
+  // Star conversation
+  const starConversation = async (conversationId: string, starred: boolean) => {
+    try {
+      const result = await chatService.starConversation(conversationId, starred);
+      if (result.success) {
+        updateConversation(conversationId, { starred });
+        showToast({
+          message: starred ? "Conversation starred" : "Conversation unstarred",
+          type: "success"
+        });
+      } else {
+        showToast({ message: result.error || "Failed to star conversation", type: "error" });
+      }
+    } catch (error) {
+      showToast({ message: "Failed to star conversation", type: "error" });
+    }
+  };
+
   // Filter conversations
   const filteredConversations = conversations.filter((c) => {
     if (filterTab === "unread") return c.unread && c.unread > 0;
+    if (filterTab === "archived") return c.archived === true;
+    if (filterTab === "starred") return c.starred === true;
+    if (filterTab === "all") return !c.archived; // Don't show archived in "all"
     if (searchQuery) {
       return (
         c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -575,6 +723,9 @@ export function useChat() {
     deleteMessage,
     markAsRead,
     loadMoreMessages,
+    refreshConversations,
+    archiveConversation,
+    starConversation,
     handleTyping,
     setSelectedConversation,
     setSearchQuery,

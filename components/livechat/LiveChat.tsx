@@ -27,6 +27,7 @@ import {
   CheckCheck,
   Clock,
   FileText,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,6 +51,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useUsers } from "@/hooks/useUsers";
 import { useDebounce } from "@/hooks/useDebounce";
+import ConversationInfoPanel from "./ConversationInfoPanel";
+import { groupMessagesByDate } from "@/lib/chat-utils";
 
 export default function LiveChat() {
   const [messageInput, setMessageInput] = React.useState("");
@@ -62,6 +65,7 @@ export default function LiveChat() {
     string[]
   >([]);
   const [userSearchQuery, setUserSearchQuery] = React.useState("");
+  const [showInfoPanel, setShowInfoPanel] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const imageInputRef = React.useRef<HTMLInputElement>(null);
   const messagesContainerRef = React.useRef<HTMLDivElement>(null);
@@ -89,6 +93,9 @@ export default function LiveChat() {
     deleteMessage,
     markAsRead,
     loadMoreMessages,
+    refreshConversations,
+    archiveConversation,
+    starConversation,
     handleTyping,
     setSelectedConversation,
     setSearchQuery,
@@ -317,13 +324,14 @@ export default function LiveChat() {
                             <div className="flex items-center space-x-2">
                               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
                                 <span className="text-xs font-medium text-primary">
-                                  {user.name?.[0]?.toUpperCase() ||
+                                  {user.firstName?.[0]?.toUpperCase() ||
                                     user.email?.[0]?.toUpperCase()}
                                 </span>
                               </div>
                               <div>
                                 <p className="text-sm font-medium">
-                                  {user.name || "Unknown"}
+                                  {user.firstName || "Unknown"}{" "}
+                                  {user.lastName || "Unknown"}
                                 </p>
                                 <p className="text-xs text-gray-500">
                                   {user.email}
@@ -448,28 +456,49 @@ export default function LiveChat() {
           <div className="p-4 border-b border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-secondary">Conversations</h3>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="p-1 text-gray-400 hover:text-primary hover:bg-gray-100 rounded transition-colors">
-                    <EllipsisVertical className="w-5 h-5" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuItem className="cursor-pointer">
-                    <Settings className="w-4 h-4 mr-2" />
-                    Settings
-                  </DropdownMenuItem>
-                  <DropdownMenuItem className="cursor-pointer">
-                    <Archive className="w-4 h-4 mr-2" />
-                    Archived Chats
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem className="cursor-pointer">
-                    <Star className="w-4 h-4 mr-2" />
-                    Starred Messages
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <div className="flex items-center space-x-1">
+                <button
+                  onClick={refreshConversations}
+                  disabled={isLoading}
+                  className="p-1 text-gray-400 hover:text-primary hover:bg-gray-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="Refresh conversations"
+                >
+                  <RefreshCw
+                    className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`}
+                  />
+                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="p-1 text-gray-400 hover:text-primary hover:bg-gray-100 rounded transition-colors">
+                      <EllipsisVertical className="w-5 h-5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48">
+                    <DropdownMenuItem
+                      className="cursor-pointer"
+                      onClick={() => alert("Settings coming soon!")}
+                    >
+                      <Settings className="w-4 h-4 mr-2" />
+                      Settings
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      className="cursor-pointer"
+                      onClick={() => setFilterTab("archived")}
+                    >
+                      <Archive className="w-4 h-4 mr-2" />
+                      Archived Chats
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="cursor-pointer"
+                      onClick={() => setFilterTab("starred")}
+                    >
+                      <Star className="w-4 h-4 mr-2" />
+                      Starred Messages
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
 
             {/* Search Bar */}
@@ -483,10 +512,10 @@ export default function LiveChat() {
               />
             </div>
 
-            <div className="flex space-x-2">
+            <div className="flex space-x-1">
               <button
                 onClick={() => setFilterTab("all")}
-                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all ${
                   filterTab === "all"
                     ? "bg-primary text-white shadow-md"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
@@ -496,13 +525,23 @@ export default function LiveChat() {
               </button>
               <button
                 onClick={() => setFilterTab("unread")}
-                className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all ${
                   filterTab === "unread"
                     ? "bg-primary text-white shadow-md"
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
               >
                 Unread
+              </button>
+              <button
+                onClick={() => setFilterTab("archived")}
+                className={`flex-1 py-2 px-2 rounded-lg text-xs font-medium transition-all ${
+                  filterTab === "archived"
+                    ? "bg-primary text-white shadow-md"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                Archived
               </button>
             </div>
           </div>
@@ -593,13 +632,29 @@ export default function LiveChat() {
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48">
-                      <DropdownMenuItem className="cursor-pointer">
+                      <DropdownMenuItem
+                        className="cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          archiveConversation(c.id, !c.archived);
+                        }}
+                      >
                         <Archive className="w-4 h-4 mr-2" />
-                        Archive
+                        {c.archived ? "Unarchive" : "Archive"}
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="cursor-pointer">
-                        <Star className="w-4 h-4 mr-2" />
-                        Star
+                      <DropdownMenuItem
+                        className="cursor-pointer"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          starConversation(c.id, !c.starred);
+                        }}
+                      >
+                        <Star
+                          className={`w-4 h-4 mr-2 ${
+                            c.starred ? "fill-yellow-400 text-yellow-400" : ""
+                          }`}
+                        />
+                        {c.starred ? "Unstar" : "Star"}
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
@@ -653,13 +708,29 @@ export default function LiveChat() {
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <button className="p-2 text-gray-400 hover:text-primary hover:bg-gray-100 rounded-lg transition-all">
+                  <button
+                    onClick={() => alert("Voice call coming soon!")}
+                    className="p-2 text-gray-400 hover:text-primary hover:bg-gray-100 rounded-lg transition-all"
+                    title="Voice call"
+                  >
                     <Phone className="w-5 h-5" />
                   </button>
-                  <button className="p-2 text-gray-400 hover:text-primary hover:bg-gray-100 rounded-lg transition-all">
+                  <button
+                    onClick={() => alert("Video call coming soon!")}
+                    className="p-2 text-gray-400 hover:text-primary hover:bg-gray-100 rounded-lg transition-all"
+                    title="Video call"
+                  >
                     <Video className="w-5 h-5" />
                   </button>
-                  <button className="p-2 text-gray-400 hover:text-primary hover:bg-gray-100 rounded-lg transition-all">
+                  <button
+                    onClick={() => setShowInfoPanel(!showInfoPanel)}
+                    className={`p-2 hover:bg-gray-100 rounded-lg transition-all ${
+                      showInfoPanel
+                        ? "text-primary bg-gray-100"
+                        : "text-gray-400 hover:text-primary"
+                    }`}
+                    title="Conversation info"
+                  >
                     <Info className="w-5 h-5" />
                   </button>
                 </div>
@@ -691,167 +762,175 @@ export default function LiveChat() {
                   </div>
                 )}
 
-                {/* Date Divider */}
-                <div className="flex items-center justify-center my-6">
-                  <div className="bg-white px-3 py-1 rounded-full border border-gray-200">
-                    <span className="text-xs text-gray-500">Today</span>
-                  </div>
-                </div>
-
-                {/* Messages */}
-                {selectedMessages.map((m) => (
-                  <div
-                    key={m.id}
-                    className={`flex space-x-2 mb-4 group ${
-                      m.sender === "me" ? "justify-end" : "justify-start"
-                    }`}
-                  >
-                    {m.sender === "other" && (
-                      <img
-                        src={selectedConversation.avatarUrl}
-                        alt={selectedConversation.name}
-                        className="w-8 h-8 rounded-full shrink-0"
-                      />
+                {/* Messages with Dynamic Date Dividers */}
+                {groupMessagesByDate(selectedMessages).map((m) => (
+                  <React.Fragment key={m.id}>
+                    {/* Date Divider */}
+                    {m.showDateDivider && (
+                      <div className="flex items-center justify-center my-6">
+                        <div className="bg-white px-3 py-1 rounded-full border border-gray-200">
+                          <span className="text-xs text-gray-500">
+                            {m.dateLabel}
+                          </span>
+                        </div>
+                      </div>
                     )}
-                    <div className="flex flex-col max-w-[70%]">
-                      <div
-                        className={`p-3 relative ${
-                          m.sender === "me"
-                            ? "bg-primary text-white rounded-[18px] rounded-br-lg"
-                            : "bg-gray-200 text-gray-800 rounded-[18px] rounded-bl-lg"
-                        }`}
-                      >
-                        {editingMessageId === m.id ? (
-                          <div className="flex items-center space-x-2">
-                            <Input
-                              value={editContent}
-                              onChange={(e) => setEditContent(e.target.value)}
-                              className="bg-white text-gray-800"
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  handleSaveEdit();
-                                } else if (e.key === "Escape") {
+
+                    {/* Message */}
+                    <div
+                      className={`flex space-x-2 mb-4 group ${
+                        m.sender === "me" ? "justify-end" : "justify-start"
+                      }`}
+                    >
+                      {m.sender === "other" && (
+                        <img
+                          src={selectedConversation.avatarUrl}
+                          alt={selectedConversation.name}
+                          className="w-8 h-8 rounded-full shrink-0"
+                        />
+                      )}
+                      <div className="flex flex-col max-w-[70%]">
+                        <div
+                          className={`p-3 relative ${
+                            m.sender === "me"
+                              ? "bg-primary text-white rounded-[18px] rounded-br-lg"
+                              : "bg-gray-200 text-gray-800 rounded-[18px] rounded-bl-lg"
+                          }`}
+                        >
+                          {editingMessageId === m.id ? (
+                            <div className="flex items-center space-x-2">
+                              <Input
+                                value={editContent}
+                                onChange={(e) => setEditContent(e.target.value)}
+                                className="bg-white text-gray-800"
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    handleSaveEdit();
+                                  } else if (e.key === "Escape") {
+                                    setEditingMessageId(null);
+                                    setEditContent("");
+                                  }
+                                }}
+                                autoFocus
+                              />
+                              <Button
+                                size="sm"
+                                onClick={handleSaveEdit}
+                                className="bg-green-600 hover:bg-green-700"
+                              >
+                                <Check className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
                                   setEditingMessageId(null);
                                   setEditContent("");
-                                }
-                              }}
-                              autoFocus
-                            />
-                            <Button
-                              size="sm"
-                              onClick={handleSaveEdit}
-                              className="bg-green-600 hover:bg-green-700"
-                            >
-                              <Check className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setEditingMessageId(null);
-                                setEditContent("");
-                              }}
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <>
-                            {m.type === "image" ? (
-                              <img
-                                src={m.content}
-                                alt="Shared image"
-                                className="max-w-full h-auto rounded-lg mb-1"
-                              />
-                            ) : m.type === "file" ? (
-                              <div className="flex items-center space-x-2 mb-1">
-                                <FileText className="w-4 h-4" />
-                                <a
-                                  href={m.content}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="underline hover:opacity-80"
+                                }}
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <>
+                              {m.type === "image" ? (
+                                <img
+                                  src={m.content}
+                                  alt="Shared image"
+                                  className="max-w-full h-auto rounded-lg mb-1"
+                                />
+                              ) : m.type === "file" ? (
+                                <div className="flex items-center space-x-2 mb-1">
+                                  <FileText className="w-4 h-4" />
+                                  <a
+                                    href={m.content}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline hover:opacity-80"
+                                  >
+                                    {m.fileName || "Download file"}
+                                  </a>
+                                </div>
+                              ) : m.type === "code" ? (
+                                <div
+                                  className={`${
+                                    m.sender === "me"
+                                      ? "bg-blue-900 text-white"
+                                      : "bg-gray-800 text-green-400"
+                                  } p-2 rounded mt-2 font-mono text-xs whitespace-pre`}
                                 >
-                                  {m.fileName || "Download file"}
-                                </a>
-                              </div>
-                            ) : m.type === "code" ? (
-                              <div
-                                className={`${
-                                  m.sender === "me"
-                                    ? "bg-blue-900 text-white"
-                                    : "bg-gray-800 text-green-400"
-                                } p-2 rounded mt-2 font-mono text-xs whitespace-pre`}
-                              >
-                                {m.content}
-                              </div>
-                            ) : (
-                              <p className="text-sm">{m.content}</p>
-                            )}
-                            {m.isEdited && (
-                              <span className="text-xs opacity-70 italic">
-                                (edited)
-                              </span>
-                            )}
-                            <div className="flex items-center justify-end mt-1 space-x-1">
-                              <span
-                                className={`text-xs ${
-                                  m.sender === "me"
-                                    ? "text-white/80"
-                                    : "text-gray-500"
-                                }`}
-                              >
-                                {m.time}
-                              </span>
-                              {m.sender === "me" && (
-                                <span className="text-xs text-white/80">
-                                  {m.isRead ? (
-                                    <CheckCheck className="w-3 h-3 inline" />
-                                  ) : (
-                                    <Check className="w-3 h-3 inline" />
-                                  )}
+                                  {m.content}
+                                </div>
+                              ) : (
+                                <p className="text-sm">{m.content}</p>
+                              )}
+                              {m.isEdited && (
+                                <span className="text-xs opacity-70 italic">
+                                  (edited)
                                 </span>
                               )}
-                            </div>
-                          </>
+                              <div className="flex items-center justify-end mt-1 space-x-1">
+                                <span
+                                  className={`text-xs ${
+                                    m.sender === "me"
+                                      ? "text-white/80"
+                                      : "text-gray-500"
+                                  }`}
+                                >
+                                  {m.time}
+                                </span>
+                                {m.sender === "me" && (
+                                  <span className="text-xs text-white/80">
+                                    {m.isRead ? (
+                                      <CheckCheck className="w-3 h-3 inline" />
+                                    ) : (
+                                      <Check className="w-3 h-3 inline" />
+                                    )}
+                                  </span>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                        {m.sender === "me" && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button className="opacity-0 group-hover:opacity-100 self-end mt-1 p-1 text-gray-400 hover:text-primary transition-all">
+                                <MoreVertical className="w-3 h-3" />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                className="cursor-pointer"
+                                onClick={() =>
+                                  handleEditMessage(m.id, m.content)
+                                }
+                              >
+                                <Edit2 className="w-4 h-4 mr-2" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="cursor-pointer text-red-600"
+                                onClick={() =>
+                                  deleteMessage(selectedConversation.id, m.id)
+                                }
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         )}
                       </div>
                       {m.sender === "me" && (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button className="opacity-0 group-hover:opacity-100 self-end mt-1 p-1 text-gray-400 hover:text-primary transition-all">
-                              <MoreVertical className="w-3 h-3" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              className="cursor-pointer"
-                              onClick={() => handleEditMessage(m.id, m.content)}
-                            >
-                              <Edit2 className="w-4 h-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="cursor-pointer text-red-600"
-                              onClick={() =>
-                                deleteMessage(selectedConversation.id, m.id)
-                              }
-                            >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <img
+                          src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg"
+                          alt="You"
+                          className="w-8 h-8 rounded-full shrink-0"
+                        />
                       )}
                     </div>
-                    {m.sender === "me" && (
-                      <img
-                        src="https://storage.googleapis.com/uxpilot-auth.appspot.com/avatars/avatar-1.jpg"
-                        alt="You"
-                        className="w-8 h-8 rounded-full shrink-0"
-                      />
-                    )}
-                  </div>
+                  </React.Fragment>
                 ))}
 
                 {/* Typing Indicator */}
@@ -968,6 +1047,14 @@ export default function LiveChat() {
             </div>
           )}
         </div>
+
+        {/* Conversation Info Panel */}
+        {showInfoPanel && selectedConversation && (
+          <ConversationInfoPanel
+            conversation={selectedConversation}
+            onClose={() => setShowInfoPanel(false)}
+          />
+        )}
       </div>
     </main>
   );

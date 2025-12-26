@@ -344,6 +344,48 @@ export function useUsers() {
     await Promise.all([fetchUsers(filters), fetchStats()]);
   };
 
+  // Send verification email
+  const sendVerificationEmail = async (id: string) => {
+    setActionLoading(true);
+    try {
+      await usersService.sendVerificationEmail(id);
+      push({
+        type: "success",
+        message: "Verification email sent successfully",
+      });
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || "Failed to send verification email";
+      push({
+        type: "error",
+        message: errorMessage,
+      });
+      throw error;
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Reset user password
+  const resetPassword = async (id: string, newPassword: string) => {
+    setActionLoading(true);
+    try {
+      await usersService.resetUserPassword(id, newPassword);
+      push({
+        type: "success",
+        message: "Password reset successfully",
+      });
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || "Failed to reset password";
+      push({
+        type: "error",
+        message: errorMessage,
+      });
+      throw error;
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   // Initial load
   useEffect(() => {
     fetchUsers();
@@ -371,6 +413,8 @@ export function useUsers() {
     bulkActivateUsers,
     bulkDeactivateUsers,
     exportUsers,
+    sendVerificationEmail,
+    resetPassword,
     clearErrors,
   };
 }

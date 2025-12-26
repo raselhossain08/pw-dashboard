@@ -49,6 +49,19 @@ export default function MySettingsPage() {
     setActiveTab(tab);
   };
 
+  const handleConfigChange = (key: string, value: string) => {
+    if (key === "refresh") {
+      setLocalChanges({});
+      setHasChanges(false);
+      fetchAllConfigs();
+      fetchGroupedConfigs();
+      return;
+    }
+
+    setLocalChanges((prev) => ({ ...prev, [key]: value }));
+    setHasChanges(true);
+  };
+
   const handleSaveChanges = async () => {
     if (Object.keys(localChanges).length === 0) return;
 
@@ -134,7 +147,10 @@ export default function MySettingsPage() {
                 <Button
                   variant="outline"
                   className="border-gray-300 text-gray-700 hover:bg-gray-50"
-                  onClick={() => fetchAllConfigs()}
+                  onClick={() => {
+                    fetchAllConfigs();
+                    fetchGroupedConfigs();
+                  }}
                   disabled={isLoading}
                 >
                   <RefreshCw
@@ -202,6 +218,9 @@ export default function MySettingsPage() {
                   "SEO",
                   "Notifications",
                   "Backups",
+                  "Security",
+                  "Integrations",
+                  "Advanced",
                 ].map((tab) => (
                   <button
                     key={tab}
@@ -227,10 +246,7 @@ export default function MySettingsPage() {
                 activeTab={activeTab}
                 configs={configs}
                 groupedConfigs={groupedConfigs}
-                onConfigChange={(key: string, value: string) => {
-                  setLocalChanges((prev) => ({ ...prev, [key]: value }));
-                  setHasChanges(true);
-                }}
+                onConfigChange={handleConfigChange}
               />
             )}
           </div>

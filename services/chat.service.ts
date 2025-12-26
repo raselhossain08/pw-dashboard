@@ -31,10 +31,23 @@ export type ChatConversation = {
 export const chatService = {
   connect(): Socket {
     const token = getAccessToken();
-    const socket = io(`${getSocketBase()}/chat`, {
+    const socketBase = getSocketBase();
+    console.log('[Chat] Connecting to:', `${socketBase}/chat`);
+    console.log('[Chat] Token available:', !!token);
+
+    const socket = io(`${socketBase}/chat`, {
       auth: { token: token ? `Bearer ${token}` : undefined },
-      transports: ["websocket"],
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5,
+      timeout: 10000,
     });
+
+    socket.on('connect_error', (error) => {
+      console.error('[Chat] Connection error:', error.message);
+    });
+
     return socket;
   },
 
@@ -126,6 +139,24 @@ export const chatService = {
       return { success: true, data: response.data };
     } catch (error: any) {
       return { success: false, error: error.message || "Failed to update message" };
+    }
+  },
+
+  async archiveConversation(conversationId: string, archived: boolean) {
+    try {
+      const response = await apiClient.patch<ChatConversation>(`/chat/conversations/${conversationId}/archive`, { archived });
+      return { success: true, data: response.data };
+    } catch (error: any) {
+      return { success: false, error: error.message || "Failed to archive conversation" };
+    }
+  },
+
+  async starConversation(conversationId: string, starred: boolean) {
+    try {
+      const response = await apiClient.patch<ChatConversation>(`/chat/conversations/${conversationId}/star`, { starred });
+      return { success: true, data: response.data };
+    } catch (error: any) {
+      return { success: false, error: error.message || "Failed to star conversation" };
     }
   },
 };

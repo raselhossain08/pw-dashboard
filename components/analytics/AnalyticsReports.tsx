@@ -28,6 +28,10 @@ import {
   Filter,
   ArrowUpRight,
   ArrowDownRight,
+  Power,
+  PowerOff,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,6 +46,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,6 +70,11 @@ import {
 import { useToast } from "@/context/ToastContext";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDistanceToNow } from "date-fns";
+import { RevenueChart } from "./charts/RevenueChart";
+import { CustomerAcquisitionChart } from "./charts/CustomerAcquisitionChart";
+import { AdvancedFilters } from "./AdvancedFilters";
+import { ReportPreview } from "./ReportPreview";
+import { ScheduleReportDialog, ScheduleData } from "./ScheduleReportDialog";
 
 export default function AnalyticsReports() {
   const { push } = useToast();
@@ -86,6 +96,23 @@ export default function AnalyticsReports() {
   const [exportFormat, setExportFormat] = React.useState<
     "pdf" | "csv" | "xlsx"
   >("pdf");
+
+  // NEW: Additional state
+  const [chartPeriod, setChartPeriod] = React.useState<
+    "monthly" | "quarterly" | "yearly"
+  >("monthly");
+  const [showAdvancedFilters, setShowAdvancedFilters] = React.useState(false);
+  const [advancedFilters, setAdvancedFilters] = React.useState<any>({});
+  const [autoRefresh, setAutoRefresh] = React.useState(false);
+  const [selectedReports, setSelectedReports] = React.useState<string[]>([]);
+  const [previewOpen, setPreviewOpen] = React.useState(false);
+  const [scheduleOpen, setScheduleOpen] = React.useState(false);
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const [pageSize] = React.useState(10);
+  const [sortConfig, setSortConfig] = React.useState<{
+    key: string;
+    direction: "asc" | "desc";
+  } | null>(null);
 
   // Form state
   const [formData, setFormData] = React.useState({
@@ -114,13 +141,49 @@ export default function AnalyticsReports() {
     deleteReport,
     generateReport,
     exportReport,
+    scheduleReport,
+    bulkDeleteReports,
+    bulkExportReports,
     isCreating,
     isUpdating,
     isDeleting,
     isGenerating,
     isExporting,
+    isScheduling,
+    isBulkDeleting,
+    isBulkExporting,
     refreshAll,
   } = useAnalytics({ period, reportType });
+
+  // Auto-refresh effect
+  React.useEffect(() => {
+    if (!autoRefresh) return;
+
+    const interval = setInterval(() => {
+      refreshAll();
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [autoRefresh, refreshAll]);
+
+  // Keyboard shortcuts
+  React.useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        if (e.key === "n") {
+          e.preventDefault();
+          setCreateDialogOpen(true);
+        }
+        if (e.key === "r") {
+          e.preventDefault();
+          refreshAll();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
+  }, [refreshAll]);
 
   const resetForm = () => {
     setFormData({
@@ -194,7 +257,106 @@ export default function AnalyticsReports() {
     setExportOpen(false);
   };
 
-  const filteredReports = reports.filter((r: ReportItem) => {
+  const filteredReports = React.useMemo(() => {
+    let filtered = reports.filter((r: ReportItem) => {
+      const matchesSearch = r.name.toLowerCase().includes(search.toLowerCase());
+      const matchesStatus =
+        !advancedFilters.statuses?.length ||
+        advancedFilters.statuses.includes(r.status);
+      const matchesType =
+        !advancedFilters.types?.length ||
+        advancedFilters.types.includes(r.type);
+      return matchesSearch && matchesStatus && matchesType;
+    });
+
+    // Apply sorting
+    if (sortConfig) {
+      filtered = [...filtered].sort((a, b) => {
+        const aValue = (a as any)[sortConfig.key];
+        const bValue = (b as any)[sortConfig.key];
+
+        if (aValue < bValue) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aValue > bValue) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return filtered;
+  }, [reports, search, advancedFilters, sortConfig]);
+
+  // Pagination
+  const paginatedReports = React.useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    return filteredReports.slice(startIndex, endIndex);
+  }, [filteredReports, currentPage, pageSize]);
+
+  const totalPages = Math.ceil(filteredReports.length / pageSize);
+
+  // NEW: Bulk operations handlers
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedReports(paginatedReports.map((r) => r._id || r.id || ""));
+    } else {
+      setSelectedReports([]);
+    }
+  };
+
+  const handleSelectReport = (reportId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedReports([...selectedReports, reportId]);
+    } else {
+      setSelectedReports(selectedReports.filter((id) => id !== reportId));
+    }
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedReports.length === 0) return;
+    if (confirm(`Delete ${selectedReports.length} reports?`)) {
+      bulkDeleteReports(selectedReports);
+      setSelectedReports([]);
+    }
+  };
+
+  const handleBulkExport = () => {
+    if (selectedReports.length === 0) return;
+    bulkExportReports(selectedReports, exportFormat);
+  };
+
+  const handleSort = (key: string) => {
+    setSortConfig((current) => ({
+      key,
+      direction:
+        current?.key === key && current.direction === "asc" ? "desc" : "asc",
+    }));
+  };
+
+  const handlePreview = (report: ReportItem) => {
+    setSelectedReport(report);
+    setPreviewOpen(true);
+  };
+
+  const handleSchedule = (data: ScheduleData) => {
+    scheduleReport(data);
+    setScheduleOpen(false);
+  };
+
+  const handleViewDetails = () => {
+    push({ message: "Opening detailed funnel analysis...", type: "info" });
+    // Navigate or open detailed view
+  };
+
+  const handleViewAllProducts = () => {
+    push({ message: "Opening full product list...", type: "info" });
+    // Navigate to products page
+  };
+
+  const handleViewReport = () => {
+    push({ message: "Opening detailed acquisition report...", type: "info" });
+    // Navigate or open report
+  };
+
+  const filteredReports_old = reports.filter((r: ReportItem) => {
     const matchesSearch = r.name.toLowerCase().includes(search.toLowerCase());
     return matchesSearch;
   });
@@ -371,11 +533,35 @@ export default function AnalyticsReports() {
           )}
           <Button
             variant="outline"
+            size="sm"
+            className={`border-gray-300 transition-colors ${
+              autoRefresh
+                ? "bg-green-50 border-green-500 text-green-700"
+                : "hover:bg-gray-50"
+            }`}
+            onClick={() => setAutoRefresh(!autoRefresh)}
+          >
+            {autoRefresh ? (
+              <Power className="w-4 h-4 mr-2" />
+            ) : (
+              <PowerOff className="w-4 h-4 mr-2" />
+            )}
+            Auto-refresh {autoRefresh ? "ON" : "OFF"}
+          </Button>
+          <Button
+            variant="outline"
             className="border-gray-300 hover:bg-gray-50 transition-colors"
             onClick={refreshAll}
             disabled={isLoading}
           >
             <RefreshCw className="w-4 h-4 mr-2" /> Refresh
+          </Button>
+          <Button
+            onClick={() => setScheduleOpen(true)}
+            variant="outline"
+            className="border-primary text-primary hover:bg-primary/10"
+          >
+            <Clock className="w-4 h-4 mr-2" /> Schedule
           </Button>
           <Button
             onClick={() => setCreateDialogOpen(true)}
@@ -586,7 +772,15 @@ export default function AnalyticsReports() {
             ))}
           </div>
           <div className="flex items-center space-x-2">
-            <Filter className="w-4 h-4 text-gray-400" />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+              className={showAdvancedFilters ? "bg-primary text-white" : ""}
+            >
+              <Filter className="w-4 h-4 mr-2" />
+              {showAdvancedFilters ? "Hide" : "Show"} Filters
+            </Button>
             <Select
               value={reportType}
               onValueChange={(v) => setReportType(v as ReportType)}
@@ -611,9 +805,15 @@ export default function AnalyticsReports() {
             onChange={(e) => setSearch(e.target.value)}
             type="text"
             className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
-            placeholder="Search reports and metrics..."
+            placeholder="Search reports and metrics... (Ctrl+K)"
           />
         </div>
+        {showAdvancedFilters && (
+          <AdvancedFilters
+            currentFilters={advancedFilters}
+            onFiltersChange={setAdvancedFilters}
+          />
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -707,32 +907,27 @@ export default function AnalyticsReports() {
               Revenue Overview
             </h3>
             <div className="flex space-x-2">
-              {["Monthly", "Quarterly", "Yearly"].map((btn, i) => (
+              {(["monthly", "quarterly", "yearly"] as const).map((btn) => (
                 <button
                   key={btn}
+                  onClick={() => setChartPeriod(btn)}
                   className={`px-3 py-1 rounded-lg text-sm transition-all ${
-                    i === 0
+                    chartPeriod === btn
                       ? "bg-primary text-white shadow-sm"
                       : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                   }`}
                 >
-                  {btn}
+                  {btn.charAt(0).toUpperCase() + btn.slice(1)}
                 </button>
               ))}
             </div>
           </div>
-          <div className="h-64 bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-100 rounded-lg flex items-center justify-center">
-            {loadingRevenue ? (
-              <Loader2 className="w-8 h-8 text-primary animate-spin" />
-            ) : (
-              <div className="text-center">
-                <BarChart3 className="w-12 h-12 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm text-gray-500">
-                  Revenue chart placeholder
-                </p>
-              </div>
-            )}
-          </div>
+          <RevenueChart
+            data={(revenueData as any)?.chartData || []}
+            period={period}
+            isLoading={loadingRevenue}
+            chartPeriod={chartPeriod}
+          />
         </div>
 
         <div className="bg-card rounded-xl p-6 shadow-sm border border-gray-100">
@@ -741,7 +936,10 @@ export default function AnalyticsReports() {
               <TrendingUp className="w-5 h-5 text-green-600" />
               Sales Funnel
             </h3>
-            <button className="text-primary hover:text-primary/80 text-sm font-medium transition-colors">
+            <button
+              onClick={handleViewDetails}
+              className="text-primary hover:text-primary/80 text-sm font-medium transition-colors"
+            >
               View Details
             </button>
           </div>
@@ -782,7 +980,10 @@ export default function AnalyticsReports() {
             <h3 className="text-lg font-semibold text-secondary">
               Top Performing Products
             </h3>
-            <button className="text-primary hover:text-primary/80 text-sm font-medium">
+            <button
+              onClick={handleViewAllProducts}
+              className="text-primary hover:text-primary/80 text-sm font-medium"
+            >
               View All
             </button>
           </div>
@@ -790,10 +991,12 @@ export default function AnalyticsReports() {
             {topProducts.map((p, i) => (
               <div
                 key={i}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
               >
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-lg bg-gray-200" />
+                  <div className="w-10 h-10 rounded-lg bg-linear-to-br from-primary/20 to-primary/10 flex items-center justify-center font-bold text-primary">
+                    {i + 1}
+                  </div>
                   <div>
                     <div className="font-medium text-sm">{p.name}</div>
                     <div className="text-xs text-gray-500">
@@ -803,7 +1006,9 @@ export default function AnalyticsReports() {
                 </div>
                 <div className="text-right">
                   <div className="font-medium text-sm">{p.revenue}</div>
-                  <div className="text-xs text-accent">{p.change}</div>
+                  {p.change && (
+                    <div className="text-xs text-accent">{p.change}</div>
+                  )}
                 </div>
               </div>
             ))}
@@ -814,13 +1019,14 @@ export default function AnalyticsReports() {
             <h3 className="text-lg font-semibold text-secondary">
               Customer Acquisition
             </h3>
-            <button className="text-primary hover:text-primary/80 text-sm font-medium">
+            <button
+              onClick={handleViewReport}
+              className="text-primary hover:text-primary/80 text-sm font-medium"
+            >
               View Report
             </button>
           </div>
-          <div className="h-64 bg-gray-50 border border-gray-100 rounded-lg flex items-center justify-center">
-            <PieChart className="w-6 h-6 text-gray-300" />
-          </div>
+          <CustomerAcquisitionChart isLoading={loadingDashboard} />
         </div>
       </div>
 
@@ -884,10 +1090,37 @@ export default function AnalyticsReports() {
       {/* Reports Table - Always visible */}
       <div className="bg-card rounded-xl p-6 shadow-sm border border-gray-100">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-secondary">
-            Reports{" "}
-            {filteredReports.length > 0 && `(${filteredReports.length})`}
-          </h3>
+          <div className="flex items-center gap-4">
+            <h3 className="text-lg font-semibold text-secondary">
+              Reports{" "}
+              {filteredReports.length > 0 && `(${filteredReports.length})`}
+            </h3>
+            {selectedReports.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">
+                  {selectedReports.length} selected
+                </Badge>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBulkExport}
+                  disabled={isBulkExporting}
+                >
+                  <Download className="w-4 h-4 mr-1" />
+                  Export
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  disabled={isBulkDeleting}
+                >
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  Delete
+                </Button>
+              </div>
+            )}
+          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="text-secondary">
@@ -897,6 +1130,9 @@ export default function AnalyticsReports() {
             <DropdownMenuContent align="end">
               <DropdownMenuItem onClick={() => setCreateDialogOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" /> Create Report
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setScheduleOpen(true)}>
+                <Clock className="w-4 h-4 mr-2" /> Schedule Report
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => setExportOpen(true)}>
@@ -923,23 +1159,69 @@ export default function AnalyticsReports() {
               <table className="w-full">
                 <thead>
                   <tr className="text-left text-gray-500 text-sm border-b">
-                    <th className="pb-3 font-medium">Name</th>
+                    <th className="pb-3 w-10">
+                      <Checkbox
+                        checked={
+                          selectedReports.length === paginatedReports.length &&
+                          paginatedReports.length > 0
+                        }
+                        onCheckedChange={handleSelectAll}
+                      />
+                    </th>
+                    <th
+                      className="pb-3 font-medium cursor-pointer hover:text-primary"
+                      onClick={() => handleSort("name")}
+                    >
+                      Name{" "}
+                      {sortConfig?.key === "name" &&
+                        (sortConfig.direction === "asc" ? "↑" : "↓")}
+                    </th>
                     <th className="pb-3 font-medium">Type</th>
                     <th className="pb-3 font-medium">Period</th>
-                    <th className="pb-3 font-medium">Status</th>
-                    <th className="pb-3 font-medium">Created</th>
+                    <th
+                      className="pb-3 font-medium cursor-pointer hover:text-primary"
+                      onClick={() => handleSort("status")}
+                    >
+                      Status{" "}
+                      {sortConfig?.key === "status" &&
+                        (sortConfig.direction === "asc" ? "↑" : "↓")}
+                    </th>
+                    <th
+                      className="pb-3 font-medium cursor-pointer hover:text-primary"
+                      onClick={() => handleSort("createdAt")}
+                    >
+                      Created{" "}
+                      {sortConfig?.key === "createdAt" &&
+                        (sortConfig.direction === "asc" ? "↑" : "↓")}
+                    </th>
                     <th className="pb-3 font-medium text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="text-sm">
-                  {filteredReports.map((report: ReportItem) => {
+                  {paginatedReports.map((report: ReportItem) => {
                     const StatusIcon = statusConfig[report.status].icon;
+                    const reportId = report._id || report.id || "";
+                    const isSelected = selectedReports.includes(reportId);
+
                     return (
                       <tr
-                        key={report._id || report.id}
-                        className="border-b border-gray-100 hover:bg-gray-50"
+                        key={reportId}
+                        className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                          isSelected ? "bg-primary/5" : ""
+                        }`}
                       >
-                        <td className="py-3 font-medium text-secondary">
+                        <td className="py-3">
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={(checked) =>
+                              handleSelectReport(reportId, checked as boolean)
+                            }
+                          />
+                        </td>
+                        <td
+                          className="py-3 font-medium text-secondary cursor-pointer hover:text-primary"
+                          onClick={() => handlePreview(report)}
+                        >
                           {report.name}
                         </td>
                         <td className="py-3">
@@ -965,14 +1247,21 @@ export default function AnalyticsReports() {
                         </td>
                         <td className="py-3">
                           <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handlePreview(report)}
+                              title="Preview"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </Button>
                             {report.status === "draft" && (
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() =>
-                                  handleGenerate(report._id || report.id || "")
-                                }
+                                onClick={() => handleGenerate(reportId)}
                                 disabled={isGenerating}
+                                title="Generate"
                               >
                                 <FileText className="w-4 h-4" />
                               </Button>
@@ -984,6 +1273,7 @@ export default function AnalyticsReports() {
                                   size="sm"
                                   onClick={() => handleExport(report)}
                                   disabled={isExporting}
+                                  title="Export"
                                 >
                                   <Download className="w-4 h-4" />
                                 </Button>
@@ -993,6 +1283,7 @@ export default function AnalyticsReports() {
                               size="sm"
                               onClick={() => openEditDialog(report)}
                               disabled={isUpdating}
+                              title="Edit"
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
@@ -1001,6 +1292,7 @@ export default function AnalyticsReports() {
                               size="sm"
                               onClick={() => openDeleteDialog(report)}
                               disabled={isDeleting}
+                              title="Delete"
                             >
                               <Trash2 className="w-4 h-4 text-red-500" />
                             </Button>
@@ -1012,6 +1304,63 @@ export default function AnalyticsReports() {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-4 pt-4 border-t">
+                <div className="text-sm text-gray-600">
+                  Showing {(currentPage - 1) * pageSize + 1} to{" "}
+                  {Math.min(currentPage * pageSize, filteredReports.length)} of{" "}
+                  {filteredReports.length} reports
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter(
+                        (page) =>
+                          page === 1 ||
+                          page === totalPages ||
+                          Math.abs(page - currentPage) <= 1
+                      )
+                      .map((page, idx, arr) => (
+                        <React.Fragment key={page}>
+                          {idx > 0 && arr[idx - 1] !== page - 1 && (
+                            <span className="px-2">...</span>
+                          )}
+                          <Button
+                            variant={
+                              currentPage === page ? "default" : "outline"
+                            }
+                            size="sm"
+                            onClick={() => setCurrentPage(page)}
+                            className="min-w-8"
+                          >
+                            {page}
+                          </Button>
+                        </React.Fragment>
+                      ))}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setCurrentPage((p) => Math.min(totalPages, p + 1))
+                    }
+                    disabled={currentPage === totalPages}
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -1317,6 +1666,26 @@ export default function AnalyticsReports() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Report Preview Dialog */}
+      <ReportPreview
+        report={selectedReport}
+        open={previewOpen}
+        onClose={() => {
+          setPreviewOpen(false);
+          setSelectedReport(null);
+        }}
+        onExport={handleExport}
+      />
+
+      {/* Schedule Report Dialog */}
+      <ScheduleReportDialog
+        open={scheduleOpen}
+        onClose={() => setScheduleOpen(false)}
+        onSchedule={handleSchedule}
+        report={selectedReport}
+        isScheduling={isScheduling}
+      />
     </main>
   );
 }

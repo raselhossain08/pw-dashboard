@@ -509,6 +509,13 @@ export default function MySettings({
     }
   };
 
+  const scrollToId = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  };
+
   // Track changes
   const markAsChanged = React.useCallback((key: string, value: any) => {
     setPendingChanges((prev) => ({ ...prev, [key]: value }));
@@ -1154,6 +1161,13 @@ export default function MySettings({
     setEmailServiceEnabled(false);
   }
 
+  const handleRunManualBackup = React.useCallback(async () => {
+    push({
+      message: "Manual backup trigger is not yet connected to the backend",
+      type: "info",
+    });
+  }, [push]);
+
   return (
     <>
       {/* Hidden file input for import */}
@@ -1237,48 +1251,54 @@ export default function MySettings({
                 General Settings
               </h4>
               <nav className="space-y-2">
-                <a
-                  className="flex items-center space-x-3 px-3 py-2 bg-primary/5 text-primary rounded-lg"
-                  href="#"
+                <button
+                  type="button"
+                  className="flex items-center space-x-3 px-3 py-2 bg-primary/5 text-primary rounded-lg w-full text-left"
+                  onClick={() => scrollToId("platform-settings")}
                 >
                   <SlidersHorizontal className="w-4 h-4" />
                   <span className="text-sm font-medium">Platform Settings</span>
-                </a>
-                <a
-                  className="flex items-center space-x-3 px-3 py-2 text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
-                  href="#"
+                </button>
+                <button
+                  type="button"
+                  className="flex items-center space-x-3 px-3 py-2 text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors w-full text-left"
+                  onClick={() => scrollToId("regional-settings")}
                 >
                   <Globe className="w-4 h-4" />
                   <span className="text-sm">Regional Settings</span>
-                </a>
-                <a
-                  className="flex items-center space-x-3 px-3 py-2 text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
-                  href="#"
+                </button>
+                <button
+                  type="button"
+                  className="flex items-center space-x-3 px-3 py-2 text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors w-full text-left"
+                  onClick={() => scrollToId("language-locale")}
                 >
                   <Languages className="w-4 h-4" />
                   <span className="text-sm">Language & Locale</span>
-                </a>
-                <a
-                  className="flex items-center space-x-3 px-3 py-2 text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
-                  href="#"
+                </button>
+                <button
+                  type="button"
+                  className="flex items-center space-x-3 px-3 py-2 text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors w-full text-left"
+                  onClick={() => scrollToId("performance-settings")}
                 >
                   <Gauge className="w-4 h-4" />
                   <span className="text-sm">Performance</span>
-                </a>
-                <a
-                  className="flex items-center space-x-3 px-3 py-2 text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
-                  href="#"
+                </button>
+                <button
+                  type="button"
+                  className="flex items-center space-x-3 px-3 py-2 text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors w-full text-left"
+                  onClick={() => scrollToId("general-security-settings")}
                 >
                   <ShieldCheck className="w-4 h-4" />
                   <span className="text-sm">Security</span>
-                </a>
-                <a
-                  className="flex items-center space-x-3 px-3 py-2 text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
-                  href="#"
+                </button>
+                <button
+                  type="button"
+                  className="flex items-center space-x-3 px-3 py-2 text-gray-600 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors w-full text-left"
+                  onClick={() => scrollToId("general-integration-settings")}
                 >
                   <Plug className="w-4 h-4" />
                   <span className="text-sm">Integrations</span>
-                </a>
+                </button>
               </nav>
 
               <div className="mt-8 pt-6 border-t border-gray-200">
@@ -1303,7 +1323,10 @@ export default function MySettings({
                 </div>
               </div>
             </div>
-            <div className="bg-card rounded-xl p-6 shadow-sm border border-gray-100">
+            <div
+              id="platform-settings"
+              className="bg-card rounded-xl p-6 shadow-sm border border-gray-100"
+            >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1357,7 +1380,10 @@ export default function MySettings({
           </div>
 
           <div className="lg:col-span-3 space-y-6">
-            <div className="bg-card rounded-xl p-6 shadow-sm border border-gray-100">
+            <div
+              id="regional-settings"
+              className="bg-card rounded-xl p-6 shadow-sm border border-gray-100"
+            >
               <h4 className="text-lg font-semibold text-secondary mb-6">
                 Platform Settings
               </h4>
@@ -1433,7 +1459,10 @@ export default function MySettings({
               </div>
             </div>
 
-            <div className="bg-card rounded-xl p-6 shadow-sm border border-gray-100">
+            <div
+              id="language-locale"
+              className="bg-card rounded-xl p-6 shadow-sm border border-gray-100"
+            >
               <h4 className="text-lg font-semibold text-secondary mb-6">
                 Regional Settings
               </h4>
@@ -1556,7 +1585,10 @@ export default function MySettings({
               </div>
             </div>
 
-            <div className="bg-card rounded-xl p-6 shadow-sm border border-gray-100">
+            <div
+              id="performance-settings"
+              className="bg-card rounded-xl p-6 shadow-sm border border-gray-100"
+            >
               <h4 className="text-lg font-semibold text-secondary mb-6">
                 Language & Locale
               </h4>
@@ -1625,7 +1657,10 @@ export default function MySettings({
               </div>
             </div>
 
-            <div className="bg-card rounded-xl p-6 shadow-sm border border-gray-100">
+            <div
+              id="general-security-settings"
+              className="bg-card rounded-xl p-6 shadow-sm border border-gray-100"
+            >
               <h4 className="text-lg font-semibold text-secondary mb-6">
                 Performance Settings
               </h4>
@@ -1684,7 +1719,10 @@ export default function MySettings({
               </div>
             </div>
 
-            <div className="bg-card rounded-xl p-6 shadow-sm border border-gray-100">
+            <div
+              id="general-integration-settings"
+              className="bg-card rounded-xl p-6 shadow-sm border border-gray-100"
+            >
               <h4 className="text-lg font-semibold text-secondary mb-6">
                 Security Settings
               </h4>
@@ -1812,7 +1850,10 @@ export default function MySettings({
                     </span>
                     <Toggle
                       checked={shopifyConnected}
-                      onChange={setShopifyConnected}
+                      onChange={(v) => {
+                        setShopifyConnected(v);
+                        markAsChanged("shopifyConnected", v);
+                      }}
                     />
                   </div>
                 </div>
@@ -1835,7 +1876,13 @@ export default function MySettings({
                     <span className="text-sm text-gray-500">
                       {gaConnected ? "Connected" : "Disconnected"}
                     </span>
-                    <Toggle checked={gaConnected} onChange={setGaConnected} />
+                    <Toggle
+                      checked={gaConnected}
+                      onChange={(v) => {
+                        setGaConnected(v);
+                        markAsChanged("gaConnected", v);
+                      }}
+                    />
                   </div>
                 </div>
 
@@ -1859,7 +1906,10 @@ export default function MySettings({
                     </span>
                     <Toggle
                       checked={emailServiceEnabled}
-                      onChange={setEmailServiceEnabled}
+                      onChange={(v) => {
+                        setEmailServiceEnabled(v);
+                        markAsChanged("emailServiceEnabled", v);
+                      }}
                     />
                   </div>
                 </div>
@@ -3037,7 +3087,10 @@ export default function MySettings({
                 </div>
               </div>
               <div className="mt-6 flex items-center justify-between">
-                <Button className="bg-primary hover:bg-primary/90 text-white">
+                <Button
+                  className="bg-primary hover:bg-primary/90 text-white"
+                  onClick={handleRunManualBackup}
+                >
                   Run Manual Backup
                 </Button>
                 <div className="text-sm text-gray-600">
@@ -3091,7 +3144,13 @@ export default function MySettings({
                       Require 2FA for all admin accounts
                     </div>
                   </div>
-                  <Toggle checked={twoFactor} onChange={setTwoFactor} />
+                  <Toggle
+                    checked={twoFactor}
+                    onChange={(v) => {
+                      setTwoFactor(v);
+                      markAsChanged("twoFactor", v);
+                    }}
+                  />
                 </div>
                 <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                   <div>
@@ -3102,7 +3161,13 @@ export default function MySettings({
                       Redirect all traffic to HTTPS
                     </div>
                   </div>
-                  <Toggle checked={sslEnforce} onChange={setSslEnforce} />
+                  <Toggle
+                    checked={sslEnforce}
+                    onChange={(v) => {
+                      setSslEnforce(v);
+                      markAsChanged("sslEnforce", v);
+                    }}
+                  />
                 </div>
                 <div className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                   <div>
@@ -3113,7 +3178,13 @@ export default function MySettings({
                       Limit API requests to prevent abuse
                     </div>
                   </div>
-                  <Toggle checked={apiRateLimit} onChange={setApiRateLimit} />
+                  <Toggle
+                    checked={apiRateLimit}
+                    onChange={(v) => {
+                      setApiRateLimit(v);
+                      markAsChanged("apiRateLimit", v);
+                    }}
+                  />
                 </div>
               </div>
               <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -3123,7 +3194,10 @@ export default function MySettings({
                   </label>
                   <Select
                     value={sessionTimeout}
-                    onValueChange={setSessionTimeout}
+                    onValueChange={(v) => {
+                      setSessionTimeout(v);
+                      markAsChanged("sessionTimeout", v);
+                    }}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue />
@@ -3142,7 +3216,10 @@ export default function MySettings({
                   </label>
                   <Select
                     value={passwordPolicy}
-                    onValueChange={setPasswordPolicy}
+                    onValueChange={(v) => {
+                      setPasswordPolicy(v);
+                      markAsChanged("passwordPolicy", v);
+                    }}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue />

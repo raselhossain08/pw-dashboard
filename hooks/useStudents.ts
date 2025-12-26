@@ -294,6 +294,169 @@ export function useStudents() {
         fetchStats();
     }, []);
 
+    // ==================== NEW STUDENT-SPECIFIC FUNCTIONS ====================
+
+    /**
+     * Get detailed student progress with enrollments and quiz scores
+     */
+    const getStudentProgress = async (studentId: string) => {
+        setLoading(true);
+        try {
+            const data = await usersService.getStudentProgress(studentId);
+            push({
+                type: "success",
+                message: "Student progress loaded successfully",
+            });
+            return data;
+        } catch (error: any) {
+            push({
+                type: "error",
+                message: error.response?.data?.message || "Failed to fetch student progress",
+            });
+            throw error;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    /**
+     * Import students from CSV/Excel file
+     */
+    const importStudents = async (students: any[], sendWelcomeEmail: boolean = false) => {
+        setLoading(true);
+        try {
+            const result = await usersService.importStudents(students, sendWelcomeEmail) as any;
+
+            // Refresh students list after import
+            await fetchStudents();
+            await fetchStats();
+
+            push({
+                type: "success",
+                message: `Successfully imported ${result.imported || 0} students. ${result.skipped || 0} skipped, ${result.failed || 0} failed.`,
+            });
+            return result;
+        } catch (error: any) {
+            push({
+                type: "error",
+                message: error.response?.data?.message || "Failed to import students",
+            });
+            throw error;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    /**
+     * Send broadcast email to students
+     */
+    const sendBroadcast = async (params: {
+        subject: string;
+        message: string;
+        studentIds?: string[];
+        courseId?: string;
+    }) => {
+        setLoading(true);
+        try {
+            const result = await usersService.sendBroadcastToStudents(params) as any;
+            push({
+                type: "success",
+                message: `Broadcast email sent to ${result.queued || 0} students`,
+            });
+            return result;
+        } catch (error: any) {
+            push({
+                type: "error",
+                message: error.response?.data?.message || "Failed to send broadcast email",
+            });
+            throw error;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    /**
+     * Send individual message to student
+     */
+    const sendMessage = async (
+        studentId: string,
+        subject: string,
+        message: string,
+        type: 'email' | 'notification' | 'both' = 'email'
+    ) => {
+        setLoading(true);
+        try {
+            const result = await usersService.sendMessageToStudent(studentId, subject, message, type) as any;
+            push({
+                type: "success",
+                message: result.message || "Message sent successfully",
+            });
+            return result;
+        } catch (error: any) {
+            push({
+                type: "error",
+                message: error.response?.data?.message || "Failed to send message",
+            });
+            throw error;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    /**
+     * Bulk activate students
+     */
+    const bulkActivateStudents = async (ids: string[]) => {
+        setLoading(true);
+        try {
+            await usersService.bulkActivateUsers(ids);
+            setStudents((prev) =>
+                prev.map((student) =>
+                    ids.includes(student._id) ? { ...student, status: "active", isActive: true } : student
+                )
+            );
+            push({
+                type: "success",
+                message: `${ids.length} students activated successfully`,
+            });
+        } catch (error: any) {
+            push({
+                type: "error",
+                message: error.response?.data?.message || "Failed to activate students",
+            });
+            throw error;
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    /**
+     * Bulk deactivate students
+     */
+    const bulkDeactivateStudents = async (ids: string[]) => {
+        setLoading(true);
+        try {
+            await usersService.bulkDeactivateUsers(ids);
+            setStudents((prev) =>
+                prev.map((student) =>
+                    ids.includes(student._id) ? { ...student, status: "inactive", isActive: false } : student
+                )
+            );
+            push({
+                type: "success",
+                message: `${ids.length} students deactivated successfully`,
+            });
+        } catch (error: any) {
+            push({
+                type: "error",
+                message: error.response?.data?.message || "Failed to deactivate students",
+            });
+            throw error;
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return {
         students,
         stats,
@@ -308,5 +471,12 @@ export function useStudents() {
         updateStudentStatus,
         bulkDeleteStudents,
         exportStudents,
+        // New functions
+        getStudentProgress,
+        importStudents,
+        sendBroadcast,
+        sendMessage,
+        bulkActivateStudents,
+        bulkDeactivateStudents,
     };
 }

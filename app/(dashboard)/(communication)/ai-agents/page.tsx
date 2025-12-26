@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import AIAgents from "@/components/aiagents/AIAgents";
 import AppLayout from "@/components/layout/AppLayout";
+import { AIAgentsErrorBoundary } from "@/components/aiagents/AIAgentsErrorBoundary";
 
 export const metadata: Metadata = {
   title: "AI Agents Management | Dashboard",
@@ -19,7 +20,9 @@ export const metadata: Metadata = {
 export default function AiAgentsPage() {
   return (
     <AppLayout>
-      <AIAgents />
+      <AIAgentsErrorBoundary>
+        <AIAgents />
+      </AIAgentsErrorBoundary>
     </AppLayout>
   );
 }

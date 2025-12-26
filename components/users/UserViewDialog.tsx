@@ -1,11 +1,25 @@
 "use client";
 
 import * as React from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { User } from "@/services/users.service";
-import { Mail, Phone, Calendar, Shield, CheckCircle, XCircle, Clock } from "lucide-react";
+import {
+  Mail,
+  Phone,
+  Calendar,
+  Shield,
+  CheckCircle,
+  XCircle,
+  Clock,
+  AlertCircle,
+} from "lucide-react";
 
 interface UserViewDialogProps {
   open: boolean;
@@ -13,7 +27,11 @@ interface UserViewDialogProps {
   user: User | null;
 }
 
-export function UserViewDialog({ open, onOpenChange, user }: UserViewDialogProps) {
+export function UserViewDialog({
+  open,
+  onOpenChange,
+  user,
+}: UserViewDialogProps) {
   if (!user) return null;
 
   const getRoleBadgeColor = (role: string) => {
@@ -102,7 +120,9 @@ export function UserViewDialog({ open, onOpenChange, user }: UserViewDialogProps
               ) : (
                 <>
                   <XCircle className="w-5 h-5 text-red-500" />
-                  <span className="text-sm font-medium">Email Not Verified</span>
+                  <span className="text-sm font-medium">
+                    Email Not Verified
+                  </span>
                 </>
               )}
             </div>
@@ -123,7 +143,23 @@ export function UserViewDialog({ open, onOpenChange, user }: UserViewDialogProps
 
           {/* Contact Information */}
           <div className="space-y-3">
-            <h4 className="font-semibold text-lg text-secondary">Contact Information</h4>
+            <h4 className="font-semibold text-lg text-secondary">
+              Contact Information
+            </h4>
+            <div className="flex items-center gap-3 text-gray-700">
+              <Mail className="w-4 h-4 text-gray-500" />
+              <span>{user.email}</span>
+              {user.emailVerified ? (
+                <Badge className="bg-green-100 text-green-800 text-xs">
+                  Verified
+                </Badge>
+              ) : (
+                <Badge className="bg-yellow-100 text-yellow-800 text-xs">
+                  <AlertCircle className="w-3 h-3 mr-1" />
+                  Not Verified
+                </Badge>
+              )}
+            </div>
             {user.phone && (
               <div className="flex items-center gap-3 text-gray-700">
                 <Phone className="w-4 h-4 text-gray-500" />
@@ -136,7 +172,9 @@ export function UserViewDialog({ open, onOpenChange, user }: UserViewDialogProps
           {user.bio && (
             <div className="space-y-2">
               <h4 className="font-semibold text-lg text-secondary">Bio</h4>
-              <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">{user.bio}</p>
+              <p className="text-gray-700 bg-gray-50 p-3 rounded-lg">
+                {user.bio}
+              </p>
             </div>
           )}
 
@@ -147,14 +185,18 @@ export function UserViewDialog({ open, onOpenChange, user }: UserViewDialogProps
                 <Calendar className="w-4 h-4" />
                 Created At
               </h4>
-              <p className="text-gray-600 text-sm">{formatDate(user.createdAt)}</p>
+              <p className="text-gray-600 text-sm">
+                {formatDate(user.createdAt)}
+              </p>
             </div>
             <div className="space-y-2">
               <h4 className="font-semibold text-gray-700 flex items-center gap-2">
                 <Clock className="w-4 h-4" />
                 Last Updated
               </h4>
-              <p className="text-gray-600 text-sm">{formatDate(user.updatedAt)}</p>
+              <p className="text-gray-600 text-sm">
+                {formatDate(user.updatedAt)}
+              </p>
             </div>
           </div>
 
@@ -164,14 +206,18 @@ export function UserViewDialog({ open, onOpenChange, user }: UserViewDialogProps
                 <Shield className="w-4 h-4" />
                 Last Login
               </h4>
-              <p className="text-gray-600 text-sm">{formatDate(user.lastLogin)}</p>
+              <p className="text-gray-600 text-sm">
+                {formatDate(user.lastLogin)}
+              </p>
             </div>
           )}
 
           {user.enrolledCourses !== undefined && (
             <div className="space-y-2 p-4 bg-primary/10 rounded-lg">
               <h4 className="font-semibold text-primary">Enrolled Courses</h4>
-              <p className="text-2xl font-bold text-primary">{user.enrolledCourses}</p>
+              <p className="text-2xl font-bold text-primary">
+                {user.enrolledCourses}
+              </p>
             </div>
           )}
         </div>

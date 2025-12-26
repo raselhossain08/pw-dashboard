@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import dynamic from "next/dynamic";
+import { useDebounce } from "@/hooks/useDebounce";
 import {
   Search as SearchIcon,
   Grid2x2,
@@ -34,6 +35,8 @@ import {
   FileDown,
   EyeOff,
   Tag,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -130,8 +133,16 @@ export default function MediaLibrary() {
   // View state
   const [view, setView] = React.useState<"grid" | "list">("grid");
   const [search, setSearch] = React.useState("");
+  const debouncedSearch = useDebounce(search, 500);
   const [typeFilter, setTypeFilter] = React.useState<string>("all");
   const [sortBy, setSortBy] = React.useState("newest");
+  const [page, setPage] = React.useState(1);
+  const [limit] = React.useState(20);
+
+  // Reset page when filters change
+  React.useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, typeFilter, sortBy]);
 
   // Selection state
   const [selectedItems, setSelectedItems] = React.useState<
@@ -159,27 +170,37 @@ export default function MediaLibrary() {
   });
 
   // Fetch files
-  const { data: filesData, isLoading } = useQuery({
-    queryKey: ["media-files", search, typeFilter],
+  const {
+    data: filesData,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ["media-files", debouncedSearch, typeFilter, sortBy, page],
     queryFn: async () => {
-      try {
-        if (search) {
-          const result = await uploadsService.searchFiles({
-            q: search,
-            type: typeFilter !== "all" ? typeFilter : undefined,
-          });
-          console.log("🔍 Search Result:", result);
-          return result || [];
-        }
-        const result = await uploadsService.getUserFiles({});
-        console.log("📁 getUserFiles Result:", result);
-        console.log("📁 Files Array:", result?.files);
-        console.log("📁 Total:", result?.total);
-        return result || { files: [], total: 0, page: 1, pages: 0 };
-      } catch (error) {
-        console.error("Error fetching files:", error);
-        return search ? [] : { files: [], total: 0, page: 1, pages: 0 };
+      if (debouncedSearch) {
+        const result = await uploadsService.searchFiles({
+          q: debouncedSearch,
+          type: typeFilter !== "all" ? typeFilter : undefined,
+          sort: sortBy,
+          page,
+          limit,
+        });
+        console.log("🔍 Search Result:", result);
+        // Search returns array, wrapping it to match structure
+        return { files: result, total: result.length, page: 1, pages: 1 };
       }
+      const result = await uploadsService.getUserFiles({
+        page,
+        limit,
+        type: typeFilter !== "all" ? typeFilter : undefined,
+        sort: sortBy,
+      });
+      console.log("📁 getUserFiles Result:", result);
+      console.log("📁 Files Array:", result?.files);
+      console.log("📁 Total:", result?.total);
+      return result || { files: [], total: 0, page: 1, pages: 0 };
     },
   });
 
@@ -327,19 +348,35 @@ export default function MediaLibrary() {
     }
   };
 
+  const validateFile = (file: File) => {
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+    if (file.size > MAX_FILE_SIZE) {
+      showToast({
+        message: `File ${file.name} exceeds 50MB limit`,
+        type: "error",
+      });
+      return false;
+    }
+    return true;
+  };
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
 
-    const files = Array.from(e.dataTransfer.files);
-    setUploadFiles((prev) => [...prev, ...files]);
+    const files = Array.from(e.dataTransfer.files).filter(validateFile);
+    if (files.length > 0) {
+      setUploadFiles((prev) => [...prev, ...files]);
+    }
   };
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
-      const files = Array.from(e.target.files);
-      setUploadFiles((prev) => [...prev, ...files]);
+      const files = Array.from(e.target.files).filter(validateFile);
+      if (files.length > 0) {
+        setUploadFiles((prev) => [...prev, ...files]);
+      }
     }
   };
 
@@ -666,6 +703,17 @@ export default function MediaLibrary() {
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
             <span className="ml-3 text-gray-600">Loading files...</span>
+          </div>
+        ) : isError ? (
+          <div className="text-center py-12">
+            <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-red-900 mb-2">
+              Error loading files
+            </h3>
+            <p className="text-red-600 mb-4">
+              {(error as Error)?.message || "Something went wrong"}
+            </p>
+            <Button onClick={() => refetch()}>Try Again</Button>
           </div>
         ) : files.length === 0 ? (
           <div className="text-center py-12">
@@ -1052,6 +1100,42 @@ export default function MediaLibrary() {
         )}
       </div>
 
+      {/* Pagination */}
+      {!isLoading && files.length > 0 && (
+        <div className="flex items-center justify-between mt-6 bg-card rounded-xl p-4 shadow-sm border border-gray-100">
+          <p className="text-sm text-gray-600">
+            Showing {(page - 1) * limit + 1} to{" "}
+            {Math.min(page * limit, filesData?.total || 0)} of{" "}
+            {filesData?.total || 0} files
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+            >
+              <ChevronLeft className="w-4 h-4 mr-2" />
+              Previous
+            </Button>
+            <span className="text-sm font-medium px-2">
+              Page {page} of {filesData?.pages || 1}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setPage((p) => Math.min(filesData?.pages || 1, p + 1))
+              }
+              disabled={page === (filesData?.pages || 1)}
+            >
+              Next
+              <ChevronRight className="w-4 h-4 ml-2" />
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Upload Dialog */}
       <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
         <DialogContent className="max-w-2xl">
@@ -1094,6 +1178,7 @@ export default function MediaLibrary() {
               id="file-input"
               type="file"
               multiple
+              accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
               className="hidden"
               onChange={handleFileInput}
             />

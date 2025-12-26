@@ -250,6 +250,81 @@ export function useAnalytics(options: UseAnalyticsOptions = {}) {
     [exportReportMutation]
   );
 
+  // Schedule report mutation
+  const scheduleReportMutation = useMutation({
+    mutationFn: (scheduleData: any) => analyticsService.scheduleReport(scheduleData),
+    onMutate: () => {
+      push({ message: "Scheduling report...", type: "loading", duration: 0 });
+    },
+    onSuccess: () => {
+      push({ message: "Report scheduled successfully!", type: "success" });
+      queryClient.invalidateQueries({ queryKey: ["analytics", "reports"] });
+    },
+    onError: (error: any) => {
+      push({
+        message: error?.response?.data?.message || "Failed to schedule report",
+        type: "error",
+      });
+    },
+  });
+
+  // Bulk delete mutation
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids: string[]) => analyticsService.bulkDeleteReports(ids),
+    onMutate: () => {
+      push({ message: "Deleting reports...", type: "loading", duration: 0 });
+    },
+    onSuccess: () => {
+      push({ message: "Reports deleted successfully!", type: "success" });
+      queryClient.invalidateQueries({ queryKey: ["analytics", "reports"] });
+    },
+    onError: (error: any) => {
+      push({
+        message: error?.response?.data?.message || "Failed to delete reports",
+        type: "error",
+      });
+    },
+  });
+
+  // Bulk export mutation
+  const bulkExportMutation = useMutation({
+    mutationFn: ({ ids, format }: { ids: string[]; format: "pdf" | "csv" | "xlsx" }) =>
+      analyticsService.bulkExportReports(ids, format),
+    onMutate: () => {
+      push({ message: "Preparing bulk export...", type: "loading", duration: 0 });
+    },
+    onSuccess: () => {
+      push({ message: "Bulk export completed!", type: "success" });
+    },
+    onError: (error: any) => {
+      push({
+        message: error?.response?.data?.message || "Failed to bulk export",
+        type: "error",
+      });
+    },
+  });
+
+  const scheduleReport = useCallback(
+    (scheduleData: any) => {
+      scheduleReportMutation.mutate(scheduleData);
+    },
+    [scheduleReportMutation]
+  );
+
+  const bulkDeleteReports = useCallback(
+    (ids: string[]) => {
+      bulkDeleteMutation.mutate(ids);
+    },
+    [bulkDeleteMutation]
+  );
+
+  const bulkExportReports = useCallback(
+    (ids: string[], format: "pdf" | "csv" | "xlsx" = "pdf") => {
+      bulkExportMutation.mutate({ ids, format });
+    },
+    [bulkExportMutation]
+  );
+
   const refreshAll = useCallback(() => {
     refetchDashboard();
     refetchRevenue();
@@ -304,6 +379,9 @@ export function useAnalytics(options: UseAnalyticsOptions = {}) {
     deleteReport,
     generateReport,
     exportReport,
+    scheduleReport,
+    bulkDeleteReports,
+    bulkExportReports,
 
     // Mutation states
     isCreating: createReportMutation.isPending,
@@ -311,6 +389,9 @@ export function useAnalytics(options: UseAnalyticsOptions = {}) {
     isDeleting: deleteReportMutation.isPending,
     isGenerating: generateReportMutation.isPending,
     isExporting: exportReportMutation.isPending,
+    isScheduling: scheduleReportMutation.isPending,
+    isBulkDeleting: bulkDeleteMutation.isPending,
+    isBulkExporting: bulkExportMutation.isPending,
 
     // Refresh
     refreshAll,

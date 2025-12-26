@@ -39,6 +39,8 @@ import {
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -539,15 +541,13 @@ export default function Header() {
       {/* AI Assistant button now navigates to /ai-agents */}
       <AlertDialog open={logoutOpen} onOpenChange={setLogoutOpen}>
         <AlertDialogContent>
-          <div className="flex flex-col gap-2 text-center sm:text-left">
-            <p className="text-foreground font-medium">
-              Are you sure you want to log out?
-            </p>
-            <p className="text-muted-foreground text-sm">
-              You will be signed out from your dashboard and redirected to the
-              login page.
-            </p>
-          </div>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Logout</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to log out? You will be signed out from your
+              dashboard and redirected to the login page.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="hover:bg-secondary hover:text-white transition-all duration-200">
               Cancel

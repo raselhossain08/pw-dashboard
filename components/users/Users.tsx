@@ -89,6 +89,8 @@ export default function Users() {
     bulkActivateUsers,
     bulkDeactivateUsers,
     exportUsers,
+    sendVerificationEmail,
+    resetPassword,
   } = useUsers();
 
   const { toggleUserSelection, selectAllUsers, clearSelection } =
@@ -113,6 +115,11 @@ export default function Users() {
     React.useState(false);
   const [addUserOpen, setAddUserOpen] = React.useState(false);
   const [addRoleOpen, setAddRoleOpen] = React.useState(false);
+  const [resetPasswordOpen, setResetPasswordOpen] = React.useState(false);
+  const [newPassword, setNewPassword] = React.useState("");
+  const [verifyEmailConfirm, setVerifyEmailConfirm] = React.useState<
+    string | null
+  >(null);
 
   // Debounced search
   const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -212,6 +219,21 @@ export default function Users() {
 
   const handleRefresh = async () => {
     await refresh();
+  };
+
+  const handleSendVerificationEmail = async (userId: string) => {
+    await sendVerificationEmail(userId);
+    setVerifyEmailConfirm(null);
+    loadUsers();
+  };
+
+  const handleResetPassword = async () => {
+    if (selectedUser && newPassword) {
+      await resetPassword(selectedUser._id, newPassword);
+      setResetPasswordOpen(false);
+      setNewPassword("");
+      setSelectedUser(null);
+    }
   };
 
   const handleSelectAll = () => {
@@ -716,6 +738,25 @@ export default function Users() {
                               </>
                             )}
                           </DropdownMenuItem>
+                          {!u.emailVerified && (
+                            <DropdownMenuItem
+                              onClick={() => setVerifyEmailConfirm(u._id)}
+                              disabled={actionLoading}
+                            >
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                              Send Verification Email
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedUser(u);
+                              setResetPasswordOpen(true);
+                            }}
+                            disabled={actionLoading}
+                          >
+                            <ShieldCheck className="w-4 h-4 mr-2" />
+                            Reset Password
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             onClick={() => setConfirmDeleteId(u._id)}
@@ -1091,6 +1132,102 @@ export default function Users() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Send Verification Email Confirmation Dialog */}
+      <AlertDialog
+        open={!!verifyEmailConfirm}
+        onOpenChange={(o) => !o && setVerifyEmailConfirm(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send Verification Email?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A verification email will be sent to the user's email address.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => setVerifyEmailConfirm(null)}
+              disabled={actionLoading}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() =>
+                verifyEmailConfirm &&
+                handleSendVerificationEmail(verifyEmailConfirm)
+              }
+              disabled={actionLoading}
+            >
+              {actionLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                "Send Email"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={resetPasswordOpen} onOpenChange={setResetPasswordOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset User Password</DialogTitle>
+            <DialogDescription>
+              Enter a new password for{" "}
+              {selectedUser?.name || selectedUser?.email}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label htmlFor="newPassword" className="text-sm font-medium">
+                New Password
+              </label>
+              <input
+                id="newPassword"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter new password"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
+                minLength={6}
+              />
+              <p className="text-xs text-gray-500">
+                Password must be at least 6 characters long
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setResetPasswordOpen(false);
+                setNewPassword("");
+              }}
+              disabled={actionLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleResetPassword}
+              disabled={actionLoading || !newPassword || newPassword.length < 6}
+            >
+              {actionLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Resetting...
+                </>
+              ) : (
+                "Reset Password"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </main>
   );
 }

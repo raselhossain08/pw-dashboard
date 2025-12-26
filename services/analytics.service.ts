@@ -168,6 +168,59 @@ class AnalyticsService {
             throw error;
         }
     }
+
+    // ===== NEW ANALYTICS ENDPOINTS =====
+    async getStudentProgress() {
+        try {
+            const { data } = await apiClient.get("/analytics/student-progress");
+            return data;
+        } catch (error) {
+            console.error("Failed to fetch student progress:", error);
+            throw error;
+        }
+    }
+
+    async getInstructorPerformance() {
+        try {
+            const { data } = await apiClient.get("/analytics/instructor-performance");
+            return data;
+        } catch (error) {
+            console.error("Failed to fetch instructor performance:", error);
+            throw error;
+        }
+    }
+
+    async scheduleReport(scheduleData: any) {
+        try {
+            const { data } = await apiClient.post("/analytics/reports/schedule", scheduleData);
+            return data;
+        } catch (error) {
+            console.error("Failed to schedule report:", error);
+            throw error;
+        }
+    }
+
+    async bulkDeleteReports(ids: string[]) {
+        try {
+            await apiClient.post("/analytics/reports/bulk-delete", { ids });
+        } catch (error) {
+            console.error("Failed to bulk delete reports:", error);
+            throw error;
+        }
+    }
+
+    async bulkExportReports(ids: string[], format: "pdf" | "csv" | "xlsx" = "pdf") {
+        try {
+            const { data } = await apiClient.post("/analytics/reports/bulk-export", {
+                ids,
+                format,
+            });
+            return data;
+        } catch (error) {
+            console.error("Failed to bulk export reports:", error);
+            throw error;
+        }
+    }
 }
 
 export const analyticsService = new AnalyticsService();

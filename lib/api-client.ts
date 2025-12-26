@@ -77,6 +77,7 @@ type QueryParams = Record<string, string | number | boolean | undefined>;
 type RequestOpts = RequestInit & {
   params?: QueryParams;
   onUploadProgress?: (progressEvent: { loaded: number; total?: number }) => void;
+  responseType?: 'json' | 'blob';
 };
 
 function withParams(url: string, params?: QueryParams) {
@@ -98,6 +99,16 @@ async function http<T>(method: string, url: string, body?: unknown, options: Req
     credentials: 'include',
     body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
   });
+
+  if (options.responseType === 'blob') {
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      throw new Error(json?.error || json?.message || `HTTP ${res.status}`);
+    }
+    const blob = await res.blob();
+    return { data: blob as unknown as T };
+  }
+
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(json?.error || json?.message || `HTTP ${res.status}`);
   if (options.onUploadProgress) options.onUploadProgress({ loaded: 1, total: 1 });

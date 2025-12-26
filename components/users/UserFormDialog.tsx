@@ -1,10 +1,22 @@
 "use client";
 
 import * as React from "react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
@@ -18,7 +30,13 @@ interface UserFormDialogProps {
   loading?: boolean;
 }
 
-export function UserFormDialog({ open, onOpenChange, user, onSubmit, loading }: UserFormDialogProps) {
+export function UserFormDialog({
+  open,
+  onOpenChange,
+  user,
+  onSubmit,
+  loading,
+}: UserFormDialogProps) {
   const [formData, setFormData] = React.useState<any>({
     name: "",
     email: "",
@@ -77,7 +95,10 @@ export function UserFormDialog({ open, onOpenChange, user, onSubmit, loading }: 
       newErrors.password = "Password must be at least 6 characters";
     }
 
-    if (!formData.name?.trim() && (!formData.firstName?.trim() || !formData.lastName?.trim())) {
+    if (
+      !formData.name?.trim() &&
+      (!formData.firstName?.trim() || !formData.lastName?.trim())
+    ) {
       newErrors.name = "Name or First/Last name is required";
     }
 
@@ -112,7 +133,9 @@ export function UserFormDialog({ open, onOpenChange, user, onSubmit, loading }: 
         <DialogHeader>
           <DialogTitle>{user ? "Edit User" : "Create New User"}</DialogTitle>
           <DialogDescription>
-            {user ? "Update user information below" : "Fill in the details to create a new user"}
+            {user
+              ? "Update user information below"
+              : "Fill in the details to create a new user"}
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -126,10 +149,14 @@ export function UserFormDialog({ open, onOpenChange, user, onSubmit, loading }: 
                 type="email"
                 placeholder="user@example.com"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value })
+                }
                 className={errors.email ? "border-red-500" : ""}
               />
-              {errors.email && <p className="text-sm text-red-500">{errors.email}</p>}
+              {errors.email && (
+                <p className="text-sm text-red-500">{errors.email}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -139,10 +166,14 @@ export function UserFormDialog({ open, onOpenChange, user, onSubmit, loading }: 
                 type="text"
                 placeholder="John Doe"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
                 className={errors.name ? "border-red-500" : ""}
               />
-              {errors.name && <p className="text-sm text-red-500">{errors.name}</p>}
+              {errors.name && (
+                <p className="text-sm text-red-500">{errors.name}</p>
+              )}
             </div>
           </div>
 
@@ -154,7 +185,9 @@ export function UserFormDialog({ open, onOpenChange, user, onSubmit, loading }: 
                 type="text"
                 placeholder="John"
                 value={formData.firstName}
-                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, firstName: e.target.value })
+                }
               />
             </div>
 
@@ -165,7 +198,9 @@ export function UserFormDialog({ open, onOpenChange, user, onSubmit, loading }: 
                 type="text"
                 placeholder="Doe"
                 value={formData.lastName}
-                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, lastName: e.target.value })
+                }
               />
             </div>
           </div>
@@ -177,18 +212,29 @@ export function UserFormDialog({ open, onOpenChange, user, onSubmit, loading }: 
             <Input
               id="password"
               type="password"
-              placeholder={user ? "Leave blank to keep current password" : "Enter password"}
+              placeholder={
+                user ? "Leave blank to keep current password" : "Enter password"
+              }
               value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, password: e.target.value })
+              }
               className={errors.password ? "border-red-500" : ""}
             />
-            {errors.password && <p className="text-sm text-red-500">{errors.password}</p>}
+            {errors.password && (
+              <p className="text-sm text-red-500">{errors.password}</p>
+            )}
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="role">Role</Label>
-              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+              <Select
+                value={formData.role}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, role: value })
+                }
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -204,7 +250,12 @@ export function UserFormDialog({ open, onOpenChange, user, onSubmit, loading }: 
 
             <div className="space-y-2">
               <Label htmlFor="status">Status</Label>
-              <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+              <Select
+                value={formData.status}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, status: value })
+                }
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -225,8 +276,26 @@ export function UserFormDialog({ open, onOpenChange, user, onSubmit, loading }: 
               type="tel"
               placeholder="+1234567890"
               value={formData.phone}
-              onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, phone: e.target.value })
+              }
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="avatar">Avatar URL</Label>
+            <Input
+              id="avatar"
+              type="url"
+              placeholder="https://example.com/avatar.jpg"
+              value={formData.avatar || ""}
+              onChange={(e) =>
+                setFormData({ ...formData, avatar: e.target.value })
+              }
+            />
+            <p className="text-xs text-gray-500">
+              Provide a URL to the user's profile picture
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -236,12 +305,19 @@ export function UserFormDialog({ open, onOpenChange, user, onSubmit, loading }: 
               placeholder="Tell us about yourself..."
               rows={3}
               value={formData.bio}
-              onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, bio: e.target.value })
+              }
             />
           </div>
 
           <div className="flex justify-end gap-3 pt-4">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
               Cancel
             </Button>
             <Button type="submit" disabled={loading}>

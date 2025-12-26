@@ -245,4 +245,6 @@ export interface LogFilters {
     maxResponseTime?: number;
     conversationId?: string;
     errorType?: string;
+    sortField?: string;
+    sortOrder?: 'asc' | 'desc';
 }

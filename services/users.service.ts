@@ -273,6 +273,97 @@ class UsersService {
             throw error;
         }
     }
+
+    async sendVerificationEmail(id: string) {
+        try {
+            const { data } = await apiClient.post(`/users/${id}/send-verification-email`);
+            return data;
+        } catch (error) {
+            console.error(`Failed to send verification email to user ${id}:`, error);
+            throw error;
+        }
+    }
+
+    async resetUserPassword(id: string, newPassword: string) {
+        try {
+            const { data } = await apiClient.post(`/users/${id}/reset-password`, { newPassword });
+            return data;
+        } catch (error) {
+            console.error(`Failed to reset password for user ${id}:`, error);
+            throw error;
+        }
+    }
+
+    // ==================== STUDENT-SPECIFIC METHODS ====================
+
+    /**
+     * Get detailed student progress with enrollments and quiz scores
+     */
+    async getStudentProgress(studentId: string) {
+        try {
+            const { data } = await apiClient.get(`/users/students/${studentId}/progress`);
+            return data;
+        } catch (error) {
+            console.error(`Failed to fetch student progress for ${studentId}:`, error);
+            throw error;
+        }
+    }
+
+    /**
+     * Import students from CSV/Excel data
+     */
+    async importStudents(students: any[], sendWelcomeEmail: boolean = false) {
+        try {
+            const { data } = await apiClient.post("/users/students/import", {
+                students,
+                sendWelcomeEmail,
+            });
+            return data;
+        } catch (error) {
+            console.error("Failed to import students:", error);
+            throw error;
+        }
+    }
+
+    /**
+     * Send broadcast email to multiple students
+     */
+    async sendBroadcastToStudents(params: {
+        subject: string;
+        message: string;
+        studentIds?: string[];
+        courseId?: string;
+    }) {
+        try {
+            const { data } = await apiClient.post("/users/students/broadcast", params);
+            return data;
+        } catch (error) {
+            console.error("Failed to send broadcast email:", error);
+            throw error;
+        }
+    }
+
+    /**
+     * Send individual message to a student
+     */
+    async sendMessageToStudent(
+        studentId: string,
+        subject: string,
+        message: string,
+        type: 'email' | 'notification' | 'both' = 'email'
+    ) {
+        try {
+            const { data } = await apiClient.post(`/users/students/${studentId}/message`, {
+                subject,
+                message,
+                type,
+            });
+            return data;
+        } catch (error) {
+            console.error(`Failed to send message to student ${studentId}:`, error);
+            throw error;
+        }
+    }
 }
 
 export const usersService = new UsersService();

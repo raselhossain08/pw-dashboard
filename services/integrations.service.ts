@@ -89,4 +89,22 @@ export const integrationsService = {
     async seed(): Promise<void> {
         await axios.post(`${BASE_URL}/seed`);
     },
+
+    // Generate API Key
+    async generateApiKey(): Promise<{ apiKey: string }> {
+        const { data } = await axios.post<{ apiKey: string }>('/users/api-key');
+        return data;
+    },
+
+    // Save Webhook Config
+    async saveWebhooks(config: { url: string; events: string[] }): Promise<any> {
+        const { data } = await axios.post(`${BASE_URL}/webhooks`, config);
+        return data;
+    },
+
+    // Get Webhook Config
+    async getWebhooks(): Promise<{ url: string; events: string[] }> {
+        const { data } = await axios.get<{ url: string; events: string[] }>(`${BASE_URL}/webhooks`);
+        return data;
+    },
 };
