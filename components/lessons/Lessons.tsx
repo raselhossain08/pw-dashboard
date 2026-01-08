@@ -25,6 +25,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import LessonLoadingSkeleton from "./LessonLoadingSkeleton";
 import LessonEmptyState from "./LessonEmptyState";
 import LessonStats from "./LessonStats";
+import { MediaLibrarySelector } from "@/components/cms/MediaLibrarySelector";
 import {
   PlayCircle,
   FileText,
@@ -193,6 +194,10 @@ export default function Lessons() {
   const [autoDurationSeconds, setAutoDurationSeconds] = React.useState<
     number | null
   >(null);
+  const [mediaLibraryOpen, setMediaLibraryOpen] = React.useState(false);
+  const [mediaLibraryContext, setMediaLibraryContext] = React.useState<
+    "create" | "edit"
+  >("create");
   const [seoTags, setSeoTags] = React.useState<string[]>([]);
   const [tagInput, setTagInput] = React.useState("");
   const searchRef = React.useRef<HTMLInputElement>(null);
@@ -3211,9 +3216,24 @@ export default function Lessons() {
                             </div>
                           )}
                           {!thumbnailPreview && (
-                            <div className="text-sm text-muted-foreground p-4 border-2 border-dashed rounded-lg text-center">
-                              Thumbnail will be auto-generated from video or you
-                              can manually upload one
+                            <div className="space-y-3">
+                              <div className="text-sm text-muted-foreground p-4 border-2 border-dashed rounded-lg text-center">
+                                Thumbnail will be auto-generated from video or
+                                you can manually select one
+                              </div>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  setMediaLibraryContext("create");
+                                  setMediaLibraryOpen(true);
+                                }}
+                                className="w-full"
+                              >
+                                <ImageIcon className="w-4 h-4 mr-2" />
+                                Select from Library
+                              </Button>
                             </div>
                           )}
                         </div>
@@ -3953,9 +3973,24 @@ export default function Lessons() {
                               </div>
                             )}
                             {!thumbnailPreview && !editLesson.thumbnail && (
-                              <div className="text-sm text-muted-foreground p-4 border-2 border-dashed rounded-lg text-center">
-                                Thumbnail will be auto-generated from video or
-                                you can manually upload one
+                              <div className="space-y-3">
+                                <div className="text-sm text-muted-foreground p-4 border-2 border-dashed rounded-lg text-center">
+                                  Thumbnail will be auto-generated from video or
+                                  you can manually select one
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    setMediaLibraryContext("edit");
+                                    setMediaLibraryOpen(true);
+                                  }}
+                                  className="w-full"
+                                >
+                                  <ImageIcon className="w-4 h-4 mr-2" />
+                                  Select from Library
+                                </Button>
                               </div>
                             )}
                           </div>
@@ -5542,6 +5577,17 @@ export default function Lessons() {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Media Library Selector */}
+        <MediaLibrarySelector
+          open={mediaLibraryOpen}
+          onOpenChange={setMediaLibraryOpen}
+          onSelect={(url: string) => {
+            setThumbnailPreview(url);
+            setMediaLibraryOpen(false);
+          }}
+          title="Select Lesson Thumbnail"
+        />
       </div>
     </main>
   );

@@ -73,6 +73,7 @@ import {
   GripVertical,
 } from "lucide-react";
 import { useBanners } from "@/hooks/useBanner";
+import { MediaLibrarySelector } from "@/components/cms/MediaLibrarySelector";
 import type {
   Banner,
   CreateBannerDto,
@@ -110,6 +111,7 @@ export function BannerEditor() {
   const [filterStatus, setFilterStatus] = useState<
     "all" | "active" | "inactive"
   >("all");
+  const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
 
   const [formData, setFormData] = useState<
     CreateBannerDto & { videoFile?: File; thumbnailFile?: File }
@@ -958,27 +960,142 @@ export function BannerEditor() {
 
                   <div className="space-y-2">
                     <Label htmlFor="thumbnail">Thumbnail Image</Label>
-                    <div className="flex items-center gap-4">
-                      <Input
-                        id="thumbnail"
-                        type="file"
-                        accept="image/*"
-                        onChange={handleThumbnailChange}
-                      />
-                      <Button type="button" variant="outline" size="sm">
-                        <ImageIcon className="w-4 h-4 mr-2" />
-                        Upload
-                      </Button>
+                    <div
+                      className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-colors ${
+                        uploadProgress > 0 && uploadProgress < 100
+                          ? "border-blue-400 bg-blue-50"
+                          : "border-blue-200 hover:border-blue-400 cursor-pointer bg-white"
+                      }`}
+                    >
+                      {uploadProgress > 0 && uploadProgress < 100 ? (
+                        <div className="space-y-3">
+                          <RefreshCw className="mx-auto h-12 w-12 text-blue-500 animate-spin" />
+                          <div>
+                            <p className="text-base font-semibold text-blue-700">
+                              Uploading Thumbnail...
+                            </p>
+                            <p className="text-sm text-blue-600 mt-1 font-medium">
+                              {uploadProgress}% Complete
+                            </p>
+                          </div>
+                          <Progress
+                            value={uploadProgress}
+                            className="w-full h-3 bg-blue-100"
+                          />
+                        </div>
+                      ) : formData.thumbnail ? (
+                        <div className="space-y-3">
+                          <div className="relative w-full h-48 rounded-lg overflow-hidden border-2 border-blue-100 shadow-sm mx-auto max-w-md">
+                            <img
+                              src={formData.thumbnail}
+                              alt="Thumbnail Preview"
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <p className="text-sm text-gray-600 font-medium">
+                            Thumbnail Ready
+                          </p>
+                          <div className="flex items-center justify-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMediaLibraryOpen(true);
+                              }}
+                              className="border-2 border-purple-300 hover:border-purple-500 hover:bg-purple-50"
+                            >
+                              <ImageIcon className="w-4 h-4 mr-2" />
+                              Select from Library
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setFormData({
+                                  ...formData,
+                                  thumbnail: "",
+                                  thumbnailFile: undefined,
+                                });
+                              }}
+                              className="border-2 hover:border-blue-400 hover:bg-blue-50"
+                            >
+                              <RefreshCw className="w-4 h-4 mr-2" />
+                              Change Thumbnail
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-8">
+                          <Upload className="mx-auto h-12 w-12 text-gray-400 mb-3" />
+                          <p className="text-sm font-medium text-gray-700 mb-1">
+                            Upload or Select from Library
+                          </p>
+                          <div className="flex items-center justify-center gap-3 mb-3 relative z-10">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMediaLibraryOpen(true);
+                              }}
+                              className="border-2 border-purple-300 hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 relative z-20 pointer-events-auto"
+                            >
+                              <ImageIcon className="w-4 h-4 mr-2" />
+                              Select from Library
+                            </Button>
+                          </div>
+                          <div className="relative">
+                            <div className="absolute inset-0 flex items-center">
+                              <div className="w-full border-t border-gray-300"></div>
+                            </div>
+                            <div className="relative flex justify-center text-xs">
+                              <span className="bg-white dark:bg-gray-800 px-2 text-gray-500">
+                                or drag and drop to upload
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-3">
+                            PNG, JPG, GIF up to 10MB
+                          </p>
+                        </div>
+                      )}
+                      {uploadProgress === 0 && !formData.thumbnail && (
+                        <>
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleThumbnailChange}
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer pointer-events-none"
+                            style={{ pointerEvents: "none" }}
+                            disabled={saving || loading}
+                          />
+                          <div
+                            className="absolute inset-0 cursor-pointer"
+                            onClick={(e) => {
+                              const fileInput = document.getElementById(
+                                "banner-thumbnail-input"
+                              ) as HTMLInputElement;
+                              if (fileInput) {
+                                fileInput.click();
+                              }
+                            }}
+                          >
+                            <input
+                              id="banner-thumbnail-input"
+                              type="file"
+                              accept="image/*"
+                              onChange={handleThumbnailChange}
+                              className="hidden"
+                              disabled={saving || loading}
+                            />
+                          </div>
+                        </>
+                      )}
                     </div>
-                    {formData.thumbnail && (
-                      <div className="mt-2">
-                        <img
-                          src={formData.thumbnail}
-                          alt="Preview"
-                          className="w-64 h-40 object-cover rounded-lg"
-                        />
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -1299,6 +1416,21 @@ export function BannerEditor() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Media Library Selector */}
+      <MediaLibrarySelector
+        open={mediaLibraryOpen}
+        onOpenChange={setMediaLibraryOpen}
+        onSelect={(url) => {
+          setFormData({
+            ...formData,
+            thumbnail: url,
+            thumbnailFile: undefined,
+          });
+          setMediaLibraryOpen(false);
+        }}
+        title="Select Banner Thumbnail"
+      />
     </div>
   );
 }

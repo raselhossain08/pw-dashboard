@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/select";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { RichTextEditor } from "@/components/shared/RichTextEditor";
+import { MediaLibrarySelector } from "@/components/cms/MediaLibrarySelector";
 
 interface EditCourseProps {
   courseId: string;
@@ -55,6 +56,7 @@ function EditCourse({ courseId }: EditCourseProps) {
   const [isUploading, setIsUploading] = React.useState(false);
   const [isDragging, setIsDragging] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [mediaLibraryOpen, setMediaLibraryOpen] = React.useState(false);
   const [instructors, setInstructors] = React.useState<any[]>([]);
   const [selectedInstructor, setSelectedInstructor] =
     React.useState<string>("");
@@ -993,17 +995,34 @@ function EditCourse({ courseId }: EditCourseProps) {
                         )}
                       </div>
                     ) : (
-                      <div
-                        className="flex flex-col items-center justify-center py-16 cursor-pointer group"
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-all">
+                      <div className="flex flex-col items-center justify-center py-12">
+                        <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-4">
                           <Upload className="w-10 h-10 text-primary" />
                         </div>
-                        <p className="text-sm font-medium text-gray-700 mb-1">
-                          Drop your image here or click to browse
+                        <p className="text-sm font-medium text-gray-700 mb-4">
+                          Upload or select thumbnail image
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            <Upload className="w-4 h-4 mr-2" />
+                            Upload Image
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setMediaLibraryOpen(true)}
+                          >
+                            <ImageIcon className="w-4 h-4 mr-2" />
+                            Select from Library
+                          </Button>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-3">
                           PNG, JPG or WEBP (MAX. 5MB)
                         </p>
                       </div>
@@ -1363,6 +1382,17 @@ function EditCourse({ courseId }: EditCourseProps) {
           </div>
         </form>
       </div>
+
+      {/* Media Library Selector */}
+      <MediaLibrarySelector
+        open={mediaLibraryOpen}
+        onOpenChange={setMediaLibraryOpen}
+        onSelect={(url: string) => {
+          setThumbnailPreview(url);
+          setMediaLibraryOpen(false);
+        }}
+        title="Select Course Thumbnail"
+      />
     </div>
   );
 }

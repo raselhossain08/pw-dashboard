@@ -8,7 +8,7 @@ export default function BannerPage() {
   return (
     <AppLayout>
       <div className="min-h-screen p-4 bg-gradient-to-br from-gray-50 to-gray-100">
-        <div className="container mx-auto max-w-7xl">
+        <div className="container mx-auto ">
           {/* Header Section */}
           <div className="mb-6 sm:mb-8">
             <div className="flex items-center gap-3 mb-2">

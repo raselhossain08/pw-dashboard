@@ -73,6 +73,7 @@ import {
 } from "@/services/product-categories.service";
 import { useToast } from "@/context/ToastContext";
 import { uploadsService } from "@/services/uploads.service";
+import { MediaLibrarySelector } from "@/components/cms/MediaLibrarySelector";
 
 export default function Categories() {
   const { push } = useToast();
@@ -132,6 +133,12 @@ export default function Categories() {
   const [selectedFile, setSelectedFile] = React.useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = React.useState<string>("");
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Media library states
+  const [mediaLibraryOpen, setMediaLibraryOpen] = React.useState(false);
+  const [mediaLibraryContext, setMediaLibraryContext] = React.useState<
+    "create" | "edit"
+  >("create");
 
   // Fetch categories when filters change
   React.useEffect(() => {
@@ -956,6 +963,19 @@ export default function Categories() {
                     <Upload className="w-4 h-4 mr-2" />
                     {selectedFile ? "Change Image" : "Upload Image"}
                   </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setMediaLibraryContext("create");
+                      setMediaLibraryOpen(true);
+                    }}
+                    disabled={isUploading}
+                    className="border-gray-300"
+                  >
+                    <ImageIcon className="w-4 h-4 mr-2" />
+                    Select from Library
+                  </Button>
                   {selectedFile && (
                     <span className="text-sm text-gray-600 flex-1 truncate">
                       {selectedFile.name}
@@ -1097,6 +1117,19 @@ export default function Categories() {
                   >
                     <Upload className="w-4 h-4 mr-2" />
                     {selectedFile ? "Change Image" : "Upload New Image"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setMediaLibraryContext("edit");
+                      setMediaLibraryOpen(true);
+                    }}
+                    disabled={isUploading}
+                    className="border-gray-300"
+                  >
+                    <ImageIcon className="w-4 h-4 mr-2" />
+                    Select from Library
                   </Button>
                   {selectedFile && (
                     <span className="text-sm text-gray-600 flex-1 truncate">
@@ -1404,6 +1437,22 @@ export default function Categories() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Media Library Selector */}
+      <MediaLibrarySelector
+        open={mediaLibraryOpen}
+        onOpenChange={setMediaLibraryOpen}
+        onSelect={(url: string) => {
+          setPreviewUrl(url);
+          if (mediaLibraryContext === "create") {
+            setFormData({ ...formData, image: url });
+          } else {
+            handleFormChange("image", url);
+          }
+          setMediaLibraryOpen(false);
+        }}
+        title="Select Category Image"
+      />
     </main>
   );
 }

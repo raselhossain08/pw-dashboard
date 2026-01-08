@@ -456,3 +456,4 @@ export function AgentPerformancePanel({
     </Dialog>
   );
 }
+

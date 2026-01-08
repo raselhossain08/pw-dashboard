@@ -64,7 +64,6 @@ export interface AboutUs {
   teamSection?: TeamSection;
   statsSection?: StatsSection;
   seo: SeoMeta;
-  isActive: boolean;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -307,44 +306,6 @@ export class AboutUsService {
       return {
         success: false,
         message: error.message || "Failed to delete About Us page",
-      };
-    }
-  }
-
-  static async toggleActiveStatus(id: string): Promise<AboutUsResponse> {
-    try {
-      const response = await fetch(
-        `${this.API_BASE_URL}/cms/about-us/${id}/toggle-active`,
-        {
-          method: "POST",
-          headers: this.getAuthHeader(),
-        }
-      );
-      const data = await response.json();
-      return this.unwrapResponse(data);
-    } catch (error: any) {
-      return {
-        success: false,
-        message: error.message || "Failed to toggle About Us page status",
-      };
-    }
-  }
-
-  static async duplicateAboutUs(id: string): Promise<AboutUsResponse> {
-    try {
-      const response = await fetch(
-        `${this.API_BASE_URL}/cms/about-us/${id}/duplicate`,
-        {
-          method: "POST",
-          headers: this.getAuthHeader(),
-        }
-      );
-      const data = await response.json();
-      return this.unwrapResponse(data);
-    } catch (error: any) {
-      return {
-        success: false,
-        message: error.message || "Failed to duplicate About Us page",
       };
     }
   }

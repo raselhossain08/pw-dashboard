@@ -14,8 +14,6 @@ interface UseEventsResult {
     fetchEvents: () => Promise<void>
     updateEvents: (data: UpdateEventsDto) => Promise<Events | null>
     updateEventsWithMedia: (formData: FormData) => Promise<Events | null>
-    toggleActive: () => Promise<Events | null>
-    duplicateEvent: (slug: string) => Promise<Events | null>
     exportEvents: (format: "json" | "pdf") => Promise<void>
     refreshEvents: () => Promise<void>
 }
@@ -86,40 +84,7 @@ export function useEvents(): UseEventsResult {
         }
     }, [push])
 
-    const toggleActive = useCallback(async (): Promise<Events | null> => {
-        setSaving(true)
-        try {
-            const updated = await eventsService.toggleActive()
-            setEvents(updated)
-            push({
-                message: `Events section ${updated.isActive ? 'activated' : 'deactivated'}`,
-                type: 'success'
-            })
-            return updated
-        } catch (err: any) {
-            const errorMessage = err?.response?.data?.message || err?.message || 'Failed to toggle active status'
-            push({ message: errorMessage, type: 'error' })
-            return null
-        } finally {
-            setSaving(false)
-        }
-    }, [push])
 
-    const duplicateEvent = useCallback(async (slug: string): Promise<Events | null> => {
-        setSaving(true)
-        try {
-            const duplicated = await eventsService.duplicateEvent(slug)
-            setEvents(duplicated)
-            push({ message: 'Event duplicated successfully!', type: 'success' })
-            return duplicated
-        } catch (err: any) {
-            const errorMessage = err?.response?.data?.message || err?.message || 'Failed to duplicate event'
-            push({ message: errorMessage, type: 'error' })
-            return null
-        } finally {
-            setSaving(false)
-        }
-    }, [push])
 
     const exportEvents = useCallback(async (format: "json" | "pdf"): Promise<void> => {
         setSaving(true)
@@ -147,8 +112,6 @@ export function useEvents(): UseEventsResult {
         fetchEvents,
         updateEvents,
         updateEventsWithMedia,
-        toggleActive,
-        duplicateEvent,
         exportEvents,
         refreshEvents,
     }

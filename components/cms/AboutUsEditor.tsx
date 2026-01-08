@@ -23,7 +23,6 @@ import {
   Plus,
   Trash2,
   Eye,
-  EyeOff,
   Edit,
   X,
   ChevronUp,
@@ -59,7 +58,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ExternalLink, Copy, Download, Loader2 } from "lucide-react";
+import { ExternalLink, Download, Loader2 } from "lucide-react";
 
 export function AboutUsEditor() {
   const { push } = useToast();
@@ -72,8 +71,6 @@ export function AboutUsEditor() {
     fetchAboutUs,
     updateAboutUs,
     updateAboutUsWithUpload,
-    toggleActiveStatus,
-    duplicateAboutUs,
     exportAboutUs,
     refreshAboutUs,
   } = useAboutUs();
@@ -100,7 +97,6 @@ export function AboutUsEditor() {
       ogImage: "",
       canonicalUrl: "",
     },
-    isActive: true,
   });
 
   const [editingSection, setEditingSection] = useState<ContentSection | null>(
@@ -179,7 +175,6 @@ export function AboutUsEditor() {
           ogImage: "",
           canonicalUrl: "",
         },
-        isActive: aboutUs.isActive !== undefined ? aboutUs.isActive : true,
       });
       if (aboutUs.headerSection?.image) {
         setHeaderImagePreview(aboutUs.headerSection.image);
@@ -243,7 +238,6 @@ export function AboutUsEditor() {
           );
         }
         formDataToSend.append("seo", JSON.stringify(formData.seo));
-        formDataToSend.append("isActive", String(formData.isActive));
 
         if (headerImageFile) {
           formDataToSend.append("headerImage", headerImageFile);
@@ -279,8 +273,12 @@ export function AboutUsEditor() {
         setSectionImageFile(null);
         setTeamMemberImageFile(null);
         setTeamMemberImageFiles(new Map());
+        // Refresh data after upload to show updated content
+        await refreshAboutUs();
       } else {
         await updateAboutUs(aboutUs._id, formData);
+        // Refresh data after update to show updated content
+        await refreshAboutUs();
       }
     } catch (error: any) {
       console.error("Failed to save:", error);
@@ -293,18 +291,6 @@ export function AboutUsEditor() {
     setSectionImageFile(null);
     setTeamMemberImageFile(null);
     setTeamMemberImageFiles(new Map());
-  };
-
-  const handleToggleActive = async () => {
-    if (!aboutUs?._id) return;
-    await toggleActiveStatus(aboutUs._id);
-    // Update local form data
-    setFormData({ ...formData, isActive: !formData.isActive });
-  };
-
-  const handleDuplicate = async () => {
-    if (!aboutUs?._id) return;
-    await duplicateAboutUs(aboutUs._id);
   };
 
   const handleExport = async (format: "json" | "pdf") => {
@@ -420,9 +406,18 @@ export function AboutUsEditor() {
               </p>
             </div>
             <div className="flex gap-2">
-              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-              <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              <div
+                className="w-2 h-2 bg-primary rounded-full animate-bounce"
+                style={{ animationDelay: "0ms" }}
+              />
+              <div
+                className="w-2 h-2 bg-primary rounded-full animate-bounce"
+                style={{ animationDelay: "150ms" }}
+              />
+              <div
+                className="w-2 h-2 bg-primary rounded-full animate-bounce"
+                style={{ animationDelay: "300ms" }}
+              />
             </div>
           </div>
         </CardContent>
@@ -439,7 +434,9 @@ export function AboutUsEditor() {
               <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" />
             </div>
             <div>
-              <CardTitle className="text-red-900 dark:text-red-100">Error Loading Data</CardTitle>
+              <CardTitle className="text-red-900 dark:text-red-100">
+                Error Loading Data
+              </CardTitle>
               <CardDescription className="text-red-700 dark:text-red-300">
                 {error}
               </CardDescription>
@@ -452,7 +449,10 @@ export function AboutUsEditor() {
               <RefreshCw className="w-4 h-4 mr-2" />
               Try Again
             </Button>
-            <Button onClick={() => window.location.href = '/dashboard'} variant="ghost">
+            <Button
+              onClick={() => (window.location.href = "/dashboard")}
+              variant="ghost"
+            >
               Back to Dashboard
             </Button>
           </div>
@@ -462,41 +462,49 @@ export function AboutUsEditor() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6 animate-in fade-in duration-500">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white dark:bg-gray-800 p-4 sm:p-6 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
+        <div className="flex-1">
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
             About Us Page Management
           </h2>
-          <p className="text-muted-foreground">
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
             Manage About Us page content with WordPress-like editor
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
+            size="sm"
             onClick={() => setPreviewOpen(true)}
             disabled={saving}
+            className="flex-1 sm:flex-none min-w-[100px]"
           >
-            <Eye className="w-4 h-4 mr-2" />
+            <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
             Preview
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" disabled={saving || isExporting}>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={saving || isExporting}
+                className="flex-1 sm:flex-none min-w-[100px]"
+              >
                 {isExporting ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
                 ) : (
-                  <Download className="w-4 h-4 mr-2" />
+                  <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
                 )}
                 Export
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem onClick={() => handleExport("json")}>
                 Export as JSON
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => handleExport("pdf")}>
                 Export as PDF
               </DropdownMenuItem>
@@ -504,25 +512,28 @@ export function AboutUsEditor() {
           </DropdownMenu>
           <Button
             variant="outline"
-            onClick={handleDuplicate}
-            disabled={saving || !aboutUs?._id}
+            size="sm"
+            onClick={handleRefresh}
+            disabled={saving}
+            className="flex-1 sm:flex-none min-w-[100px]"
           >
-            <Copy className="w-4 h-4 mr-2" />
-            Duplicate
-          </Button>
-          <Button variant="outline" onClick={handleRefresh} disabled={saving}>
-            <RefreshCw className="w-4 h-4 mr-2" />
+            <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
             Refresh
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            size="sm"
+            className="flex-1 sm:flex-none min-w-[120px] bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transition-all duration-300"
+          >
             {saving ? (
               <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
                 Saving...
               </>
             ) : (
               <>
-                <Save className="w-4 h-4 mr-2" />
+                <Save className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
                 Save Changes
               </>
             )}
@@ -530,63 +541,57 @@ export function AboutUsEditor() {
         </div>
       </div>
 
-      {/* Active Status */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Page Status</CardTitle>
-              <CardDescription>
-                Control visibility of the About Us page
-              </CardDescription>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Switch
-                checked={formData.isActive}
-                onCheckedChange={handleToggleActive}
-                disabled={saving}
-              />
-              <Label>{formData.isActive ? "Active" : "Inactive"}</Label>
-              {formData.isActive ? (
-                <Eye className="w-4 h-4 text-green-500" />
-              ) : (
-                <EyeOff className="w-4 h-4 text-red-500" />
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleToggleActive}
-                disabled={saving}
-              >
-                {formData.isActive ? "Deactivate" : "Activate"}
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
-
       {/* Main Content Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="header">Header</TabsTrigger>
-          <TabsTrigger value="sections">Content Sections</TabsTrigger>
-          <TabsTrigger value="team">Team</TabsTrigger>
-          <TabsTrigger value="stats">Stats</TabsTrigger>
-          <TabsTrigger value="seo">SEO</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1 sm:gap-2 h-auto p-1 bg-gray-100 dark:bg-gray-800">
+          <TabsTrigger
+            value="header"
+            className="text-xs sm:text-sm py-2 sm:py-2.5"
+          >
+            Header
+          </TabsTrigger>
+          <TabsTrigger
+            value="sections"
+            className="text-xs sm:text-sm py-2 sm:py-2.5"
+          >
+            Sections
+          </TabsTrigger>
+          <TabsTrigger
+            value="team"
+            className="text-xs sm:text-sm py-2 sm:py-2.5"
+          >
+            Team
+          </TabsTrigger>
+          <TabsTrigger
+            value="stats"
+            className="text-xs sm:text-sm py-2 sm:py-2.5"
+          >
+            Stats
+          </TabsTrigger>
+          <TabsTrigger
+            value="seo"
+            className="text-xs sm:text-sm py-2 sm:py-2.5 col-span-2 sm:col-span-1"
+          >
+            SEO
+          </TabsTrigger>
         </TabsList>
 
         {/* Header Tab */}
-        <TabsContent value="header" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Header Section</CardTitle>
-              <CardDescription>
+        <TabsContent value="header" className="space-y-3 sm:space-y-4 mt-4">
+          <Card className="shadow-md border-gray-200 dark:border-gray-700 transition-all duration-300 hover:shadow-lg">
+            <CardHeader className="pb-3 sm:pb-4">
+              <CardTitle className="text-lg sm:text-xl">
+                Header Section
+              </CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
                 Configure the header content for your About Us page
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3 sm:space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="title">Title</Label>
+                <Label htmlFor="title" className="text-sm font-medium">
+                  Title
+                </Label>
                 <Input
                   id="title"
                   value={formData.headerSection?.title || ""}
@@ -600,11 +605,14 @@ export function AboutUsEditor() {
                     })
                   }
                   placeholder="About Us"
+                  className="text-sm sm:text-base"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="subtitle">Subtitle</Label>
+                <Label htmlFor="subtitle" className="text-sm font-medium">
+                  Subtitle
+                </Label>
                 <Textarea
                   id="subtitle"
                   value={formData.headerSection?.subtitle || ""}
@@ -619,35 +627,45 @@ export function AboutUsEditor() {
                   }
                   placeholder="LEARN MORE ABOUT PERSONAL WINGS"
                   rows={2}
+                  className="text-sm sm:text-base resize-none"
                 />
               </div>
 
               {/* Image Upload */}
-              <div className="space-y-4">
-                <Label>Header Image (Optional)</Label>
+              <div className="space-y-3 sm:space-y-4">
+                <Label className="text-sm font-medium">
+                  Header Image (Optional)
+                </Label>
                 {headerImagePreview && (
-                  <div className="relative w-full h-64 rounded-lg overflow-hidden border">
+                  <div className="relative w-full h-48 sm:h-56 md:h-64 rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600 group">
                     <Image
                       src={headerImagePreview}
                       alt="Header preview"
                       fill
-                      className="object-cover"
+                      className="object-cover transition-transform duration-300 group-hover:scale-105"
                     />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
                   </div>
                 )}
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
                   <Button
                     variant="outline"
                     onClick={() =>
                       document.getElementById("header-image-upload")?.click()
                     }
                     type="button"
+                    className="w-full sm:w-auto text-sm"
                   >
-                    <Upload className="w-4 h-4 mr-2" />
+                    <Upload className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
                     {headerImageFile ? "Change Image" : "Upload Image"}
                   </Button>
                   {headerImageFile && (
-                    <Badge variant="secondary">{headerImageFile.name}</Badge>
+                    <Badge
+                      variant="secondary"
+                      className="text-xs sm:text-sm truncate max-w-[150px] sm:max-w-[200px]"
+                    >
+                      {headerImageFile.name}
+                    </Badge>
                   )}
                 </div>
                 <input
@@ -660,7 +678,9 @@ export function AboutUsEditor() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="imageAlt">Image Alt Text</Label>
+                <Label htmlFor="imageAlt" className="text-sm font-medium">
+                  Image Alt Text
+                </Label>
                 <Input
                   id="imageAlt"
                   value={formData.headerSection?.imageAlt || ""}
@@ -674,6 +694,7 @@ export function AboutUsEditor() {
                     })
                   }
                   placeholder="Descriptive text for the image"
+                  className="text-sm sm:text-base"
                 />
               </div>
             </CardContent>
@@ -681,22 +702,24 @@ export function AboutUsEditor() {
         </TabsContent>
 
         {/* Sections Tab */}
-        <TabsContent value="sections" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>
+        <TabsContent value="sections" className="space-y-3 sm:space-y-4 mt-4">
+          <Card className="shadow-md border-gray-200 dark:border-gray-700 transition-all duration-300 hover:shadow-lg">
+            <CardHeader className="pb-3 sm:pb-4">
+              <CardTitle className="text-lg sm:text-xl">
                 {editingSection ? "Edit Section" : "Add New Section"}
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs sm:text-sm">
                 {editingSection
                   ? "Update section information"
                   : "Create a new content section with rich text editor"}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <CardContent className="space-y-3 sm:space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="sectionId">Section ID</Label>
+                  <Label htmlFor="sectionId" className="text-sm font-medium">
+                    Section ID
+                  </Label>
                   <Input
                     id="sectionId"
                     value={sectionForm.id}
@@ -704,11 +727,14 @@ export function AboutUsEditor() {
                       setSectionForm({ ...sectionForm, id: e.target.value })
                     }
                     placeholder="mission"
+                    className="text-sm sm:text-base"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="sectionOrder">Order</Label>
+                  <Label htmlFor="sectionOrder" className="text-sm font-medium">
+                    Order
+                  </Label>
                   <Input
                     id="sectionOrder"
                     type="number"
@@ -720,12 +746,15 @@ export function AboutUsEditor() {
                       })
                     }
                     placeholder="1"
+                    className="text-sm sm:text-base"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="sectionTitle">Title</Label>
+                <Label htmlFor="sectionTitle" className="text-sm font-medium">
+                  Title
+                </Label>
                 <Input
                   id="sectionTitle"
                   value={sectionForm.title}
@@ -733,12 +762,15 @@ export function AboutUsEditor() {
                     setSectionForm({ ...sectionForm, title: e.target.value })
                   }
                   placeholder="Our Mission"
+                  className="text-sm sm:text-base"
                 />
               </div>
 
               {/* Rich Text Editor */}
               <div className="space-y-2">
-                <Label>Content (WordPress-like Editor)</Label>
+                <Label className="text-sm font-medium">
+                  Content (WordPress-like Editor)
+                </Label>
                 <RichTextEditor
                   content={sectionForm.content}
                   onChange={(content) =>
@@ -749,31 +781,40 @@ export function AboutUsEditor() {
               </div>
 
               {/* Section Image */}
-              <div className="space-y-4">
-                <Label>Section Image (Optional)</Label>
+              <div className="space-y-3 sm:space-y-4">
+                <Label className="text-sm font-medium">
+                  Section Image (Optional)
+                </Label>
                 {sectionImagePreview && (
-                  <div className="relative w-full h-48 rounded-lg overflow-hidden border">
+                  <div className="relative w-full h-40 sm:h-48 rounded-lg overflow-hidden border border-gray-300 dark:border-gray-600 group">
                     <Image
                       src={sectionImagePreview}
                       alt="Section preview"
                       fill
-                      className="object-cover"
+                      className="object-cover transition-transform duration-300 group-hover:scale-105"
                     />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-300" />
                   </div>
                 )}
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
                   <Button
                     variant="outline"
                     onClick={() =>
                       document.getElementById("section-image-upload")?.click()
                     }
                     type="button"
+                    className="w-full sm:w-auto text-sm"
                   >
-                    <ImageIcon className="w-4 h-4 mr-2" />
+                    <ImageIcon className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
                     {sectionImageFile ? "Change Image" : "Upload Image"}
                   </Button>
                   {sectionImageFile && (
-                    <Badge variant="secondary">{sectionImageFile.name}</Badge>
+                    <Badge
+                      variant="secondary"
+                      className="text-xs sm:text-sm truncate max-w-[150px] sm:max-w-[200px]"
+                    >
+                      {sectionImageFile.name}
+                    </Badge>
                   )}
                 </div>
                 <input
@@ -786,7 +827,12 @@ export function AboutUsEditor() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="sectionImageAlt">Image Alt Text</Label>
+                <Label
+                  htmlFor="sectionImageAlt"
+                  className="text-sm font-medium"
+                >
+                  Image Alt Text
+                </Label>
                 <Input
                   id="sectionImageAlt"
                   value={sectionForm.imageAlt || ""}
@@ -794,6 +840,7 @@ export function AboutUsEditor() {
                     setSectionForm({ ...sectionForm, imageAlt: e.target.value })
                   }
                   placeholder="Descriptive text for the image"
+                  className="text-sm sm:text-base"
                 />
               </div>
 
@@ -804,11 +851,14 @@ export function AboutUsEditor() {
                     setSectionForm({ ...sectionForm, isActive: checked })
                   }
                 />
-                <Label>Section Active</Label>
+                <Label className="text-sm font-medium">Section Active</Label>
               </div>
 
-              <div className="flex gap-2">
-                <Button onClick={handleSaveSection} className="flex-1">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <Button
+                  onClick={handleSaveSection}
+                  className="flex-1 text-sm sm:text-base"
+                >
                   {editingSection ? "Update Section" : "Add Section"}
                 </Button>
                 {editingSection && (
@@ -828,6 +878,7 @@ export function AboutUsEditor() {
                       setSectionImageFile(null);
                       setSectionImagePreview("");
                     }}
+                    className="flex-1 sm:flex-none text-sm sm:text-base"
                   >
                     Cancel
                   </Button>
@@ -837,30 +888,33 @@ export function AboutUsEditor() {
           </Card>
 
           {/* Existing Sections List */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Content Sections</CardTitle>
-              <CardDescription>
+          <Card className="shadow-md border-gray-200 dark:border-gray-700">
+            <CardHeader className="pb-3 sm:pb-4">
+              <CardTitle className="text-lg sm:text-xl">
+                Content Sections
+              </CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
                 Manage your content sections. Drag to reorder or edit.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <div className="space-y-3 sm:space-y-4">
                 {(formData.sections || [])
                   .sort((a, b) => a.order - b.order)
                   .map((section, index) => (
                     <div
                       key={section.id}
-                      className="flex items-start gap-4 p-4 border rounded-lg"
+                      className="flex flex-col sm:flex-row items-start gap-3 sm:gap-4 p-3 sm:p-4 border rounded-lg hover:border-blue-500 transition-all duration-300 bg-white dark:bg-gray-800"
                     >
-                      <div className="flex flex-col gap-2">
+                      <div className="flex gap-1 sm:gap-2 order-1 sm:order-0">
                         <Button
                           size="sm"
                           variant="ghost"
                           onClick={() => moveSectionUp(index)}
                           disabled={index === 0}
+                          className="h-8 w-8 p-0"
                         >
-                          <ChevronUp className="w-4 h-4" />
+                          <ChevronUp className="w-3 h-3 sm:w-4 sm:h-4" />
                         </Button>
                         <Button
                           size="sm"
@@ -869,29 +923,33 @@ export function AboutUsEditor() {
                           disabled={
                             index === (formData.sections || []).length - 1
                           }
+                          className="h-8 w-8 p-0"
                         >
-                          <ChevronDown className="w-4 h-4" />
+                          <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />
                         </Button>
                       </div>
 
-                      <div className="flex-1 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-semibold">{section.title}</h4>
+                      <div className="flex-1 space-y-2 min-w-0 order-2 w-full sm:w-auto">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="font-semibold text-sm sm:text-base truncate">
+                            {section.title}
+                          </h4>
                           <Badge
                             variant={section.isActive ? "default" : "secondary"}
+                            className="text-xs shrink-0"
                           >
                             {section.isActive ? "Active" : "Inactive"}
                           </Badge>
-                          <Badge variant="outline">
+                          <Badge variant="outline" className="text-xs shrink-0">
                             Order: {section.order}
                           </Badge>
                         </div>
                         <div
-                          className="text-sm text-gray-600 line-clamp-2"
+                          className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 line-clamp-2"
                           dangerouslySetInnerHTML={{ __html: section.content }}
                         />
                         {section.image && (
-                          <div className="relative w-32 h-20 rounded overflow-hidden">
+                          <div className="relative w-full sm:w-32 h-20 rounded overflow-hidden border">
                             <Image
                               src={section.image}
                               alt={section.imageAlt || section.title}
@@ -902,28 +960,37 @@ export function AboutUsEditor() {
                         )}
                       </div>
 
-                      <div className="flex gap-2">
+                      <div className="flex gap-2 order-3 sm:order-0 w-full sm:w-auto">
                         <Button
                           size="sm"
                           variant="outline"
                           onClick={() => handleEditSection(section)}
+                          className="flex-1 sm:flex-none text-xs sm:text-sm h-8"
                         >
-                          <Edit className="w-4 h-4" />
+                          <Edit className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
+                          <span className="hidden sm:inline">Edit</span>
                         </Button>
                         <Button
                           size="sm"
                           variant="destructive"
                           onClick={() => handleDeleteSection(section.id)}
+                          className="flex-1 sm:flex-none text-xs sm:text-sm h-8"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-1" />
+                          <span className="hidden sm:inline">Delete</span>
                         </Button>
                       </div>
                     </div>
                   ))}
                 {(!formData.sections || formData.sections.length === 0) && (
-                  <p className="text-center text-gray-500 py-8">
-                    No sections yet. Add your first section above.
-                  </p>
+                  <div className="text-center py-12 px-4">
+                    <div className="mx-auto w-16 h-16 sm:w-20 sm:h-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
+                      <Plus className="w-8 h-8 sm:w-10 sm:h-10 text-gray-400" />
+                    </div>
+                    <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400">
+                      No sections yet. Add your first section above.
+                    </p>
+                  </div>
                 )}
               </div>
             </CardContent>
@@ -1680,29 +1747,29 @@ export function AboutUsEditor() {
 
       {/* Preview Dialog */}
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-[95vw] md:max-w-6xl lg:max-w-7xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">
+        <DialogContent className="max-w-[98vw] sm:max-w-[95vw] md:max-w-4xl lg:max-w-6xl xl:max-w-7xl max-h-[92vh] sm:max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="sticky top-0 bg-white dark:bg-gray-900 z-10 pb-4 border-b">
+            <DialogTitle className="text-xl sm:text-2xl font-bold">
               Preview About Us Page
             </DialogTitle>
-            <DialogDescription>
+            <DialogDescription className="text-xs sm:text-sm">
               This is how your About Us page will appear to visitors
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-6 mt-4">
+          <div className="space-y-4 sm:space-y-6 mt-4 px-2 sm:px-4">
             {/* Header Section Preview */}
             {formData.headerSection && (
-              <div className="border rounded-lg p-6">
-                <h2 className="text-3xl font-bold mb-2">
+              <div className="border rounded-lg p-4 sm:p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900">
+                <h2 className="text-2xl sm:text-3xl font-bold mb-2">
                   {formData.headerSection.title || "About Us"}
                 </h2>
                 {formData.headerSection.subtitle && (
-                  <p className="text-lg text-gray-600 mb-4">
+                  <p className="text-sm sm:text-base lg:text-lg text-gray-600 dark:text-gray-400 mb-4">
                     {formData.headerSection.subtitle}
                   </p>
                 )}
                 {headerImagePreview && (
-                  <div className="relative w-full h-64 rounded-lg overflow-hidden border">
+                  <div className="relative w-full h-48 sm:h-56 md:h-64 rounded-lg overflow-hidden border">
                     <Image
                       src={headerImagePreview}
                       alt={formData.headerSection.imageAlt || "Header image"}
@@ -1716,21 +1783,24 @@ export function AboutUsEditor() {
 
             {/* Sections Preview */}
             {formData.sections && formData.sections.length > 0 && (
-              <div className="space-y-6">
+              <div className="space-y-4 sm:space-y-6">
                 {formData.sections
                   .filter((s) => s.isActive)
                   .sort((a, b) => a.order - b.order)
                   .map((section) => (
-                    <div key={section.id} className="border rounded-lg p-6">
-                      <h3 className="text-2xl font-semibold mb-4">
+                    <div
+                      key={section.id}
+                      className="border rounded-lg p-4 sm:p-6 bg-white dark:bg-gray-800"
+                    >
+                      <h3 className="text-xl sm:text-2xl font-semibold mb-3 sm:mb-4">
                         {section.title}
                       </h3>
                       <div
-                        className="prose max-w-none"
+                        className="prose prose-sm sm:prose max-w-none dark:prose-invert"
                         dangerouslySetInnerHTML={{ __html: section.content }}
                       />
                       {section.image && (
-                        <div className="relative w-full h-48 rounded-lg overflow-hidden border mt-4">
+                        <div className="relative w-full h-40 sm:h-48 rounded-lg overflow-hidden border mt-4">
                           <Image
                             src={section.image}
                             alt={section.imageAlt || section.title}
@@ -1746,30 +1816,33 @@ export function AboutUsEditor() {
 
             {/* Team Section Preview */}
             {formData.teamSection?.isActive && formData.teamSection.members && (
-              <div className="border rounded-lg p-6">
+              <div className="border rounded-lg p-4 sm:p-6 bg-white dark:bg-gray-800">
                 {formData.teamSection.title && (
-                  <h3 className="text-2xl font-semibold mb-2">
+                  <h3 className="text-xl sm:text-2xl font-semibold mb-2">
                     {formData.teamSection.title}
                   </h3>
                 )}
                 {formData.teamSection.subtitle && (
-                  <p className="text-lg text-gray-600 mb-4">
+                  <p className="text-sm sm:text-base lg:text-lg text-gray-600 dark:text-gray-400 mb-4">
                     {formData.teamSection.subtitle}
                   </p>
                 )}
                 {formData.teamSection.description && (
-                  <p className="text-gray-700 mb-6">
+                  <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 mb-6">
                     {formData.teamSection.description}
                   </p>
                 )}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                   {formData.teamSection.members
                     .filter((m) => m.isActive)
                     .sort((a, b) => a.order - b.order)
                     .map((member) => (
-                      <div key={member.id} className="border rounded-lg p-4">
+                      <div
+                        key={member.id}
+                        className="border rounded-lg p-3 sm:p-4 hover:shadow-lg transition-shadow duration-300"
+                      >
                         {member.image && (
-                          <div className="relative w-full h-48 rounded-lg overflow-hidden border mb-4">
+                          <div className="relative w-full h-40 sm:h-48 rounded-lg overflow-hidden border mb-4">
                             <Image
                               src={member.image}
                               alt={member.imageAlt || member.name}
@@ -1778,15 +1851,19 @@ export function AboutUsEditor() {
                             />
                           </div>
                         )}
-                        <h4 className="font-semibold text-lg">{member.name}</h4>
-                        <p className="text-gray-600 mb-2">{member.position}</p>
+                        <h4 className="font-semibold text-base sm:text-lg">
+                          {member.name}
+                        </h4>
+                        <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-2">
+                          {member.position}
+                        </p>
                         {member.bio && (
-                          <p className="text-sm text-gray-700 mb-2">
+                          <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 mb-2">
                             {member.bio}
                           </p>
                         )}
                         {member.certifications && (
-                          <p className="text-xs text-gray-500">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             {member.certifications}
                           </p>
                         )}
@@ -1798,19 +1875,26 @@ export function AboutUsEditor() {
 
             {/* Stats Section Preview */}
             {formData.statsSection?.isActive && formData.statsSection.stats && (
-              <div className="border rounded-lg p-6">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="border rounded-lg p-4 sm:p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900">
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
                   {formData.statsSection.stats.map((stat, index) => (
-                    <div key={index} className="text-center">
-                      <div className="text-3xl font-bold">{stat.value}</div>
-                      <div className="text-sm text-gray-600">{stat.label}</div>
+                    <div
+                      key={index}
+                      className="text-center p-3 sm:p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm"
+                    >
+                      <div className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400">
+                        {stat.value}
+                      </div>
+                      <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        {stat.label}
+                      </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
           </div>
-          <div className="flex justify-end gap-2 mt-6 pt-4 border-t">
+          <div className="flex flex-col sm:flex-row justify-end gap-2 mt-6 pt-4 border-t sticky bottom-0 bg-white dark:bg-gray-900">
             <Button
               variant="outline"
               onClick={() => {
@@ -1819,24 +1903,42 @@ export function AboutUsEditor() {
                   "http://localhost:3000";
                 window.open(`${frontendUrl}/about-us`, "_blank");
               }}
+              className="w-full sm:w-auto text-sm"
             >
-              <ExternalLink className="w-4 h-4 mr-2" />
+              <ExternalLink className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
               View Live Page
             </Button>
-            <Button onClick={() => setPreviewOpen(false)}>Close</Button>
+            <Button
+              onClick={() => setPreviewOpen(false)}
+              className="w-full sm:w-auto text-sm"
+            >
+              Close
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
 
       {/* Upload Progress */}
       {uploadProgress > 0 && uploadProgress < 100 && (
-        <div className="fixed bottom-4 right-4 bg-white border rounded-lg shadow-lg p-4 w-80 z-50">
-          <div className="flex items-center gap-2 mb-2">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span className="text-sm font-medium">Uploading images...</span>
+        <div className="fixed bottom-4 right-4 left-4 sm:left-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-2xl p-4 w-auto sm:w-80 z-50 animate-in slide-in-from-bottom-5 duration-300">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="relative">
+              <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin text-blue-600" />
+              <div className="absolute inset-0 bg-blue-600/20 blur-md animate-pulse" />
+            </div>
+            <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+              Uploading images...
+            </span>
           </div>
-          <Progress value={uploadProgress} className="h-2" />
-          <span className="text-xs text-gray-500 mt-1">{uploadProgress}%</span>
+          <Progress value={uploadProgress} className="h-2 sm:h-2.5 mb-2" />
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500 dark:text-gray-400">
+              {uploadProgress}% complete
+            </span>
+            <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+              {uploadProgress === 100 ? "Processing..." : "Uploading..."}
+            </span>
+          </div>
         </div>
       )}
     </div>

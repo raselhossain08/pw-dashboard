@@ -65,7 +65,6 @@ export interface Events {
     subtitle: string;
     events: Event[];
     seo?: SeoMeta;
-    isActive?: boolean;
     createdAt?: string;
     updatedAt?: string;
 }
@@ -75,7 +74,6 @@ export interface CreateEventsDto {
     subtitle: string;
     events: Event[];
     seo?: SeoMeta;
-    isActive?: boolean;
 }
 
 export interface UpdateEventsDto extends Partial<CreateEventsDto> { }

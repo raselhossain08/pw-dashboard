@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RichTextEditor } from "@/components/shared/RichTextEditor";
+import { MediaLibrarySelector } from "@/components/cms/MediaLibrarySelector";
 
 export default function CreateCourse() {
   const router = useRouter();
@@ -49,6 +50,7 @@ export default function CreateCourse() {
   const [uploadProgress, setUploadProgress] = React.useState<number>(0);
   const [isUploading, setIsUploading] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [mediaLibraryOpen, setMediaLibraryOpen] = React.useState(false);
   const [instructors, setInstructors] = React.useState<any[]>([]);
   const [selectedInstructor, setSelectedInstructor] =
     React.useState<string>("");
@@ -804,17 +806,34 @@ export default function CreateCourse() {
                         )}
                       </div>
                     ) : (
-                      <div
-                        className="flex flex-col items-center justify-center py-12 cursor-pointer"
-                        onClick={() => fileInputRef.current?.click()}
-                      >
+                      <div className="flex flex-col items-center justify-center py-8">
                         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                           <ImageIcon className="w-8 h-8 text-gray-400" />
                         </div>
-                        <p className="text-sm text-gray-600 mb-1">
-                          Click to upload or drag and drop
+                        <p className="text-sm text-gray-600 mb-4">
+                          Upload or select thumbnail image
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            <Upload className="w-4 h-4 mr-2" />
+                            Upload Image
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setMediaLibraryOpen(true)}
+                          >
+                            <ImageIcon className="w-4 h-4 mr-2" />
+                            Select from Library
+                          </Button>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-3">
                           PNG, JPG or WEBP (MAX. 5MB)
                         </p>
                       </div>
@@ -1109,6 +1128,17 @@ export default function CreateCourse() {
           </div>
         </form>
       </div>
+
+      {/* Media Library Selector */}
+      <MediaLibrarySelector
+        open={mediaLibraryOpen}
+        onOpenChange={setMediaLibraryOpen}
+        onSelect={(url: string) => {
+          setThumbnailPreview(url);
+          setMediaLibraryOpen(false);
+        }}
+        title="Select Course Thumbnail"
+      />
     </div>
   );
 }

@@ -38,6 +38,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { useTestimonials } from "@/hooks/useTestimonials";
+import { MediaLibrarySelector } from "@/components/cms/MediaLibrarySelector";
 import Image from "next/image";
 import type {
   Testimonials,
@@ -82,6 +83,10 @@ export function TestimonialsEditor() {
   const [previewTestimonial, setPreviewTestimonial] =
     useState<Testimonial | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
+  const [currentAvatarIndex, setCurrentAvatarIndex] = useState<number | null>(
+    null
+  );
 
   const [formData, setFormData] = useState<UpdateTestimonialsDto>({
     title: "",
@@ -143,17 +148,22 @@ export function TestimonialsEditor() {
       submitFormData.append("title", formData.title || "");
       submitFormData.append("subtitle", formData.subtitle || "");
       submitFormData.append("description", formData.description || "");
-      submitFormData.append("isActive", String(formData.isActive));
+
+      // Filter out completely empty testimonials (no name AND no comment)
+      // Keep testimonials that have at least a name or comment filled
+      const validTestimonials = (formData.testimonials || []).filter(
+        (t) => t.name?.trim() || t.comment?.trim()
+      );
 
       // Add testimonials as JSON
-      if (formData.testimonials) {
+      if (validTestimonials.length > 0) {
         submitFormData.append(
           "testimonials",
-          JSON.stringify(formData.testimonials)
+          JSON.stringify(validTestimonials)
         );
       }
 
-      // Add avatar files
+      // Add avatar files (adjust indices based on valid testimonials)
       Object.entries(avatarFiles).forEach(([index, file]) => {
         submitFormData.append(`avatar_${index}`, file);
       });
@@ -239,20 +249,7 @@ export function TestimonialsEditor() {
   return (
     <div className="w-full space-y-6">
       {/* Header Actions */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-2">
-          <Badge variant={testimonials?.isActive ? "default" : "secondary"}>
-            {testimonials?.isActive ? (
-              <>
-                <Eye className="w-3 h-3 mr-1" /> Active
-              </>
-            ) : (
-              <>
-                <EyeOff className="w-3 h-3 mr-1" /> Inactive
-              </>
-            )}
-          </Badge>
-        </div>
+      <div className="flex items-center justify-end flex-wrap gap-4">
         <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
@@ -316,26 +313,6 @@ export function TestimonialsEditor() {
                 <CardDescription>
                   Manage pilot testimonials and feedback section
                 </CardDescription>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <Switch
-                    checked={formData.isActive}
-                    onCheckedChange={(checked) => {
-                      setFormData({ ...formData, isActive: checked });
-                      toggleActive();
-                    }}
-                    disabled={saving || loading}
-                  />
-                  <Label className="flex items-center gap-2">
-                    {formData.isActive ? (
-                      <Eye className="h-4 w-4" />
-                    ) : (
-                      <EyeOff className="h-4 w-4" />
-                    )}
-                    {formData.isActive ? "Active" : "Inactive"}
-                  </Label>
-                </div>
               </div>
             </div>
           </CardHeader>
@@ -569,39 +546,94 @@ export function TestimonialsEditor() {
                                 <CardContent className="space-y-4">
                                   <div>
                                     <Label>Avatar Image</Label>
-                                    <div className="flex items-center gap-4 mt-2">
-                                      {(avatarPreviews[index] ||
-                                        testimonial.avatar) && (
-                                        <div className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-gray-200">
-                                          <Image
-                                            src={
-                                              avatarPreviews[index] ||
-                                              testimonial.avatar
-                                            }
-                                            alt={testimonial.name}
-                                            fill
-                                            className="object-cover"
-                                          />
+                                    <div className="mt-2">
+                                      {avatarPreviews[index] ||
+                                      testimonial.avatar ? (
+                                        <div className="space-y-3">
+                                          <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-blue-100 shadow-sm mx-auto">
+                                            <Image
+                                              src={
+                                                avatarPreviews[index] ||
+                                                testimonial.avatar
+                                              }
+                                              alt={testimonial.name}
+                                              fill
+                                              className="object-cover"
+                                            />
+                                          </div>
+                                          <div className="flex items-center justify-center gap-2">
+                                            <Button
+                                              type="button"
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setCurrentAvatarIndex(index);
+                                                setMediaLibraryOpen(true);
+                                              }}
+                                              className="border-2 border-purple-300 hover:border-purple-500 hover:bg-purple-50"
+                                            >
+                                              <ImageIcon className="w-4 h-4 mr-2" />
+                                              Select from Library
+                                            </Button>
+                                            <label
+                                              htmlFor={`avatar-${index}`}
+                                              className="cursor-pointer inline-flex items-center px-3 py-1.5 border-2 border-gray-300 rounded-md hover:bg-gray-50 text-sm"
+                                            >
+                                              <Upload className="h-4 w-4 mr-2" />
+                                              Change Avatar
+                                            </label>
+                                            <input
+                                              id={`avatar-${index}`}
+                                              type="file"
+                                              accept="image/*"
+                                              className="hidden"
+                                              onChange={(e) =>
+                                                handleAvatarChange(index, e)
+                                              }
+                                            />
+                                          </div>
+                                        </div>
+                                      ) : (
+                                        <div className="border-2 border-dashed rounded-xl p-6 text-center">
+                                          <Upload className="mx-auto h-10 w-10 text-gray-400 mb-2" />
+                                          <p className="text-sm font-medium text-gray-700 mb-2">
+                                            Upload or Select from Library
+                                          </p>
+                                          <div className="flex items-center justify-center gap-2">
+                                            <Button
+                                              type="button"
+                                              variant="outline"
+                                              size="sm"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setCurrentAvatarIndex(index);
+                                                setMediaLibraryOpen(true);
+                                              }}
+                                              className="border-2 border-purple-300 hover:border-purple-500 hover:bg-purple-50"
+                                            >
+                                              <ImageIcon className="w-4 h-4 mr-2" />
+                                              Select from Library
+                                            </Button>
+                                            <label
+                                              htmlFor={`avatar-${index}`}
+                                              className="cursor-pointer inline-flex items-center px-3 py-1.5 border-2 border-gray-300 rounded-md hover:bg-gray-50 text-sm"
+                                            >
+                                              <Upload className="h-4 w-4 mr-2" />
+                                              Upload Avatar
+                                            </label>
+                                            <input
+                                              id={`avatar-${index}`}
+                                              type="file"
+                                              accept="image/*"
+                                              className="hidden"
+                                              onChange={(e) =>
+                                                handleAvatarChange(index, e)
+                                              }
+                                            />
+                                          </div>
                                         </div>
                                       )}
-                                      <div className="flex-1">
-                                        <label
-                                          htmlFor={`avatar-${index}`}
-                                          className="cursor-pointer inline-flex items-center px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
-                                        >
-                                          <Upload className="h-4 w-4 mr-2" />
-                                          Choose Avatar
-                                        </label>
-                                        <input
-                                          id={`avatar-${index}`}
-                                          type="file"
-                                          accept="image/*"
-                                          className="hidden"
-                                          onChange={(e) =>
-                                            handleAvatarChange(index, e)
-                                          }
-                                        />
-                                      </div>
                                     </div>
                                   </div>
 
@@ -839,6 +871,24 @@ export function TestimonialsEditor() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Media Library Selector */}
+      <MediaLibrarySelector
+        open={mediaLibraryOpen}
+        onOpenChange={setMediaLibraryOpen}
+        onSelect={(url) => {
+          if (currentAvatarIndex !== null) {
+            setAvatarPreviews({
+              ...avatarPreviews,
+              [currentAvatarIndex]: url,
+            });
+            updateTestimonial(currentAvatarIndex, "avatar", url);
+            setMediaLibraryOpen(false);
+            setCurrentAvatarIndex(null);
+          }
+        }}
+        title="Select Testimonial Avatar"
+      />
     </div>
   );
 }

@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { useAboutSection } from "@/hooks/useAboutSection";
 import { RichTextEditor } from "@/components/shared/RichTextEditor";
+import { MediaLibrarySelector } from "@/components/cms/MediaLibrarySelector";
 import type {
   AboutSection,
   UpdateAboutSectionDto,
@@ -77,8 +78,13 @@ export function AboutSectionEditor() {
   const [activeTab, setActiveTab] = useState("content");
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
+  const [iconFiles, setIconFiles] = useState<{ [key: number]: File }>({});
+  const [iconPreviews, setIconPreviews] = useState<{ [key: number]: string }>(
+    {}
+  );
   const [isExporting, setIsExporting] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
 
   const [formData, setFormData] = useState<
     UpdateAboutSectionDto & { imageFile?: File }
@@ -134,10 +140,24 @@ export function AboutSectionEditor() {
     const file = e.target.files?.[0];
     if (file) {
       setImageFile(file);
-      // Create preview URL
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleIconChange = (
+    index: number,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setIconFiles({ ...iconFiles, [index]: file });
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setIconPreviews({ ...iconPreviews, [index]: reader.result as string });
       };
       reader.readAsDataURL(file);
     }
@@ -167,10 +187,21 @@ export function AboutSectionEditor() {
 
       // Add highlights array
       formData.highlights?.forEach((highlight, index) => {
-        submitFormData.append(
-          `highlights[${index}][icon]`,
-          highlight.icon || ""
-        );
+        // Add icon file if present, otherwise use icon text
+        if (iconFiles[index]) {
+          submitFormData.append(`highlightIcons`, iconFiles[index]);
+          submitFormData.append(
+            `highlights[${index}][iconIndex]`,
+            String(index)
+          );
+        } else if (highlight.icon && highlight.icon.startsWith("http")) {
+          submitFormData.append(`highlights[${index}][icon]`, highlight.icon);
+        } else {
+          submitFormData.append(
+            `highlights[${index}][icon]`,
+            highlight.icon || ""
+          );
+        }
         submitFormData.append(
           `highlights[${index}][label]`,
           highlight.label || ""
@@ -215,6 +246,8 @@ export function AboutSectionEditor() {
 
       await updateAboutSectionWithMedia(submitFormData);
       setImageFile(null);
+      setIconFiles({});
+      setIconPreviews({});
       await refreshAboutSection();
     } catch (error) {
       console.error("Failed to update about section:", error);
@@ -438,7 +471,7 @@ export function AboutSectionEditor() {
                       </>
                     )}
                   </Badge>
-                  <Button variant="outline" size="sm" onClick={toggleActive}>
+                  <Button size="sm" onClick={toggleActive} variant="default">
                     {aboutSection?.isActive ? "Deactivate" : "Activate"}
                   </Button>
                 </div>
@@ -489,39 +522,102 @@ export function AboutSectionEditor() {
                         <p className="text-sm text-gray-600 font-medium">
                           Image Ready
                         </p>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setImageFile(null);
-                            setImagePreview(formData.image || "");
-                          }}
-                          className="border-2 hover:border-blue-400 hover:bg-blue-50"
-                        >
-                          <RefreshCw className="w-4 h-4 mr-2" />
-                          Change Image
-                        </Button>
+                        <div className="flex items-center justify-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMediaLibraryOpen(true);
+                            }}
+                            className="border-2 border-purple-300 hover:border-purple-500 hover:bg-purple-50"
+                          >
+                            <ImageIcon className="w-4 h-4 mr-2" />
+                            Select from Library
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setImageFile(null);
+                              setImagePreview(formData.image || "");
+                            }}
+                            className="border-2 hover:border-blue-400 hover:bg-blue-50"
+                          >
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            Change Image
+                          </Button>
+                        </div>
                       </div>
                     ) : (
                       <div className="text-center py-8">
                         <Upload className="mx-auto h-12 w-12 text-gray-400 mb-3" />
                         <p className="text-sm font-medium text-gray-700 mb-1">
-                          Click to upload or drag and drop
+                          Upload or Select from Library
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <div className="flex items-center justify-center gap-3 mb-3 relative z-10">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMediaLibraryOpen(true);
+                            }}
+                            className="border-2 border-purple-300 hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 relative z-20 pointer-events-auto"
+                          >
+                            <ImageIcon className="w-4 h-4 mr-2" />
+                            Select from Library
+                          </Button>
+                        </div>
+                        <div className="relative">
+                          <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-gray-300"></div>
+                          </div>
+                          <div className="relative flex justify-center text-xs">
+                            <span className="bg-white dark:bg-gray-800 px-2 text-gray-500">
+                              or drag and drop to upload
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-3">
                           PNG, JPG, GIF up to 10MB
                         </p>
                       </div>
                     )}
-                    {uploadProgress === 0 && (
-                      <Input
-                        id="image"
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageChange}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      />
+                    {uploadProgress === 0 && !imagePreview && (
+                      <>
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageChange}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer pointer-events-none"
+                          style={{ pointerEvents: "none" }}
+                          disabled={saving || loading}
+                        />
+                        <div
+                          className="absolute inset-0 cursor-pointer"
+                          onClick={(e) => {
+                            const fileInput = document.getElementById(
+                              "about-image-input"
+                            ) as HTMLInputElement;
+                            if (fileInput) {
+                              fileInput.click();
+                            }
+                          }}
+                        >
+                          <input
+                            id="about-image-input"
+                            type="file"
+                            accept="image/*"
+                            onChange={handleImageChange}
+                            className="hidden"
+                            disabled={saving || loading}
+                          />
+                        </div>
+                      </>
                     )}
                   </div>
                 </div>
@@ -641,16 +737,44 @@ export function AboutSectionEditor() {
                       <Trash2 className="w-4 h-4 text-red-500" />
                     </Button>
                   </div>
-                  <div className="grid md:grid-cols-3 gap-3">
+                  <div className="space-y-3">
                     <div className="space-y-2">
                       <Label>Icon</Label>
-                      <Input
-                        value={highlight.icon || ""}
-                        onChange={(e) =>
-                          updateHighlight(index, "icon", e.target.value)
-                        }
-                        placeholder="🎓"
-                      />
+                      <div className="flex gap-4 items-start">
+                        <div className="flex-1 space-y-2">
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleIconChange(index, e)}
+                            className="cursor-pointer"
+                          />
+                          <Input
+                            value={highlight.icon || ""}
+                            onChange={(e) =>
+                              updateHighlight(index, "icon", e.target.value)
+                            }
+                            placeholder="Or enter emoji/text (e.g., 🎓)"
+                          />
+                        </div>
+                        {(iconPreviews[index] ||
+                          (highlight.icon &&
+                            highlight.icon.startsWith("http"))) && (
+                          <div className="w-20 h-20 border-2 rounded-lg overflow-hidden flex items-center justify-center bg-gray-50">
+                            <img
+                              src={iconPreviews[index] || highlight.icon}
+                              alt="Icon preview"
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                        )}
+                        {!iconPreviews[index] &&
+                          highlight.icon &&
+                          !highlight.icon.startsWith("http") && (
+                            <div className="w-20 h-20 border-2 rounded-lg overflow-hidden flex items-center justify-center bg-gray-50 text-3xl">
+                              {highlight.icon}
+                            </div>
+                          )}
+                      </div>
                     </div>
                     <div className="space-y-2">
                       <Label>Label</Label>
@@ -1030,6 +1154,19 @@ export function AboutSectionEditor() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Media Library Selector */}
+      <MediaLibrarySelector
+        open={mediaLibraryOpen}
+        onOpenChange={setMediaLibraryOpen}
+        onSelect={(url) => {
+          setImagePreview(url);
+          setFormData({ ...formData, image: url });
+          setImageFile(null);
+          setMediaLibraryOpen(false);
+        }}
+        title="Select About Section Image"
+      />
     </div>
   );
 }

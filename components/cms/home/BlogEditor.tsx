@@ -65,6 +65,7 @@ import {
   Check,
 } from "lucide-react";
 import { useBlog } from "@/hooks/useBlog";
+import { MediaLibrarySelector } from "@/components/cms/MediaLibrarySelector";
 import Image from "next/image";
 import type { Blog, UpdateBlogDto, BlogPost, SeoMeta } from "@/lib/types/blog";
 import { Calendar } from "@/components/ui/calendar";
@@ -121,6 +122,13 @@ export function BlogEditor() {
   const [previewPost, setPreviewPost] = useState<BlogPost | null>(null);
   const [isExporting, setIsExporting] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
+  const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
+  const [mediaLibraryType, setMediaLibraryType] = useState<"image" | "avatar">(
+    "image"
+  );
+  const [currentMediaIndex, setCurrentMediaIndex] = useState<number | null>(
+    null
+  );
 
   const [formData, setFormData] = useState<UpdateBlogDto>({
     title: "",
@@ -1045,39 +1053,115 @@ export function BlogEditor() {
                                         <CardContent className="space-y-4">
                                           <div>
                                             <Label>Blog Image</Label>
-                                            <div className="flex items-center gap-4 mt-2">
-                                              {(imagePreviews[index] ||
-                                                post.image) && (
-                                                <div className="relative w-32 h-20 rounded overflow-hidden border-2 border-gray-200">
-                                                  <Image
-                                                    src={
-                                                      imagePreviews[index] ||
-                                                      post.image
-                                                    }
-                                                    alt={post.title}
-                                                    fill
-                                                    className="object-cover"
-                                                  />
+                                            <div className="mt-2">
+                                              {imagePreviews[index] ||
+                                              post.image ? (
+                                                <div className="space-y-3">
+                                                  <div className="relative w-full h-48 rounded-lg overflow-hidden border-2 border-blue-100 shadow-sm mx-auto">
+                                                    <Image
+                                                      src={
+                                                        imagePreviews[index] ||
+                                                        post.image
+                                                      }
+                                                      alt={post.title}
+                                                      fill
+                                                      className="object-cover"
+                                                    />
+                                                  </div>
+                                                  <div className="flex items-center justify-center gap-2">
+                                                    <Button
+                                                      type="button"
+                                                      variant="outline"
+                                                      size="sm"
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setCurrentMediaIndex(
+                                                          originalIndex
+                                                        );
+                                                        setMediaLibraryType(
+                                                          "image"
+                                                        );
+                                                        setMediaLibraryOpen(
+                                                          true
+                                                        );
+                                                      }}
+                                                      className="border-2 border-purple-300 hover:border-purple-500 hover:bg-purple-50"
+                                                    >
+                                                      <ImageIcon className="w-4 h-4 mr-2" />
+                                                      Select from Library
+                                                    </Button>
+                                                    <label
+                                                      htmlFor={`image-${index}`}
+                                                      className="cursor-pointer inline-flex items-center px-3 py-1.5 border-2 border-gray-300 rounded-md hover:bg-gray-50 text-sm"
+                                                    >
+                                                      <Upload className="h-4 w-4 mr-2" />
+                                                      Change Image
+                                                    </label>
+                                                    <input
+                                                      id={`image-${index}`}
+                                                      type="file"
+                                                      accept="image/*"
+                                                      className="hidden"
+                                                      onChange={(e) =>
+                                                        handleImageChange(
+                                                          originalIndex,
+                                                          e
+                                                        )
+                                                      }
+                                                    />
+                                                  </div>
+                                                </div>
+                                              ) : (
+                                                <div className="border-2 border-dashed rounded-xl p-6 text-center">
+                                                  <Upload className="mx-auto h-10 w-10 text-gray-400 mb-2" />
+                                                  <p className="text-sm font-medium text-gray-700 mb-2">
+                                                    Upload or Select from
+                                                    Library
+                                                  </p>
+                                                  <div className="flex items-center justify-center gap-2">
+                                                    <Button
+                                                      type="button"
+                                                      variant="outline"
+                                                      size="sm"
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setCurrentMediaIndex(
+                                                          originalIndex
+                                                        );
+                                                        setMediaLibraryType(
+                                                          "image"
+                                                        );
+                                                        setMediaLibraryOpen(
+                                                          true
+                                                        );
+                                                      }}
+                                                      className="border-2 border-purple-300 hover:border-purple-500 hover:bg-purple-50"
+                                                    >
+                                                      <ImageIcon className="w-4 h-4 mr-2" />
+                                                      Select from Library
+                                                    </Button>
+                                                    <label
+                                                      htmlFor={`image-${index}`}
+                                                      className="cursor-pointer inline-flex items-center px-3 py-1.5 border-2 border-gray-300 rounded-md hover:bg-gray-50 text-sm"
+                                                    >
+                                                      <Upload className="h-4 w-4 mr-2" />
+                                                      Upload Image
+                                                    </label>
+                                                    <input
+                                                      id={`image-${index}`}
+                                                      type="file"
+                                                      accept="image/*"
+                                                      className="hidden"
+                                                      onChange={(e) =>
+                                                        handleImageChange(
+                                                          originalIndex,
+                                                          e
+                                                        )
+                                                      }
+                                                    />
+                                                  </div>
                                                 </div>
                                               )}
-                                              <div className="flex-1">
-                                                <label
-                                                  htmlFor={`image-${index}`}
-                                                  className="cursor-pointer inline-flex items-center px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
-                                                >
-                                                  <Upload className="h-4 w-4 mr-2" />
-                                                  Choose Image
-                                                </label>
-                                                <input
-                                                  id={`image-${index}`}
-                                                  type="file"
-                                                  accept="image/*"
-                                                  className="hidden"
-                                                  onChange={(e) =>
-                                                    handleImageChange(index, e)
-                                                  }
-                                                />
-                                              </div>
                                             </div>
                                           </div>
 
@@ -1419,62 +1503,149 @@ export function BlogEditor() {
 
                                             <div>
                                               <Label>Author Avatar</Label>
-                                              <div className="flex items-center gap-4 mt-2">
-                                                {(avatarPreviews[index] ||
-                                                  post.author.avatar) && (
-                                                  <div className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-gray-200">
-                                                    <Image
-                                                      src={
-                                                        avatarPreviews[index] ||
-                                                        post.author.avatar
+                                              <div className="mt-2">
+                                                {avatarPreviews[index] ||
+                                                post.author.avatar ? (
+                                                  <div className="space-y-3">
+                                                    <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-blue-100 shadow-sm mx-auto">
+                                                      <Image
+                                                        src={
+                                                          avatarPreviews[
+                                                            index
+                                                          ] ||
+                                                          post.author.avatar
+                                                        }
+                                                        alt={post.author.name}
+                                                        fill
+                                                        className="object-cover"
+                                                      />
+                                                    </div>
+                                                    <div className="flex items-center justify-center gap-2">
+                                                      <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          setCurrentMediaIndex(
+                                                            index
+                                                          );
+                                                          setMediaLibraryType(
+                                                            "avatar"
+                                                          );
+                                                          setMediaLibraryOpen(
+                                                            true
+                                                          );
+                                                        }}
+                                                        className="border-2 border-purple-300 hover:border-purple-500 hover:bg-purple-50"
+                                                      >
+                                                        <ImageIcon className="w-4 h-4 mr-2" />
+                                                        Select from Library
+                                                      </Button>
+                                                      <label
+                                                        htmlFor={`avatar-${index}`}
+                                                        className="cursor-pointer inline-flex items-center px-3 py-1.5 border-2 border-gray-300 rounded-md hover:bg-gray-50 text-sm"
+                                                      >
+                                                        <Upload className="h-4 w-4 mr-2" />
+                                                        Change Avatar
+                                                      </label>
+                                                      <input
+                                                        id={`avatar-${index}`}
+                                                        type="file"
+                                                        accept="image/*"
+                                                        className="hidden"
+                                                        onChange={(e) =>
+                                                          handleAvatarChange(
+                                                            index,
+                                                            e
+                                                          )
+                                                        }
+                                                      />
+                                                    </div>
+                                                    <Input
+                                                      value={post.author.avatar}
+                                                      onChange={(e) =>
+                                                        updateBlogPost(
+                                                          index,
+                                                          "author",
+                                                          {
+                                                            ...post.author,
+                                                            avatar:
+                                                              e.target.value,
+                                                          }
+                                                        )
                                                       }
-                                                      alt={post.author.name}
-                                                      fill
-                                                      className="object-cover"
+                                                      placeholder="Or paste avatar URL..."
+                                                      className="text-sm"
+                                                    />
+                                                  </div>
+                                                ) : (
+                                                  <div className="border-2 border-dashed rounded-xl p-6 text-center">
+                                                    <Upload className="mx-auto h-10 w-10 text-gray-400 mb-2" />
+                                                    <p className="text-sm font-medium text-gray-700 mb-2">
+                                                      Upload or Select from
+                                                      Library
+                                                    </p>
+                                                    <div className="flex items-center justify-center gap-2">
+                                                      <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          setCurrentMediaIndex(
+                                                            index
+                                                          );
+                                                          setMediaLibraryType(
+                                                            "avatar"
+                                                          );
+                                                          setMediaLibraryOpen(
+                                                            true
+                                                          );
+                                                        }}
+                                                        className="border-2 border-purple-300 hover:border-purple-500 hover:bg-purple-50"
+                                                      >
+                                                        <ImageIcon className="w-4 h-4 mr-2" />
+                                                        Select from Library
+                                                      </Button>
+                                                      <label
+                                                        htmlFor={`avatar-${index}`}
+                                                        className="cursor-pointer inline-flex items-center px-3 py-1.5 border-2 border-gray-300 rounded-md hover:bg-gray-50 text-sm"
+                                                      >
+                                                        <Upload className="h-4 w-4 mr-2" />
+                                                        Upload Avatar
+                                                      </label>
+                                                      <input
+                                                        id={`avatar-${index}`}
+                                                        type="file"
+                                                        accept="image/*"
+                                                        className="hidden"
+                                                        onChange={(e) =>
+                                                          handleAvatarChange(
+                                                            index,
+                                                            e
+                                                          )
+                                                        }
+                                                      />
+                                                    </div>
+                                                    <Input
+                                                      value={post.author.avatar}
+                                                      onChange={(e) =>
+                                                        updateBlogPost(
+                                                          index,
+                                                          "author",
+                                                          {
+                                                            ...post.author,
+                                                            avatar:
+                                                              e.target.value,
+                                                          }
+                                                        )
+                                                      }
+                                                      placeholder="Or paste avatar URL..."
+                                                      className="text-sm mt-3"
                                                     />
                                                   </div>
                                                 )}
-                                                <div className="flex-1 space-y-2">
-                                                  <div>
-                                                    <label
-                                                      htmlFor={`avatar-${index}`}
-                                                      className="cursor-pointer inline-flex items-center px-4 py-2 border border-gray-300 rounded-md hover:bg-gray-50"
-                                                    >
-                                                      <Upload className="h-4 w-4 mr-2" />
-                                                      {avatarPreviews[index]
-                                                        ? "Change Avatar"
-                                                        : "Upload Avatar"}
-                                                    </label>
-                                                    <input
-                                                      id={`avatar-${index}`}
-                                                      type="file"
-                                                      accept="image/*"
-                                                      className="hidden"
-                                                      onChange={(e) =>
-                                                        handleAvatarChange(
-                                                          index,
-                                                          e
-                                                        )
-                                                      }
-                                                    />
-                                                  </div>
-                                                  <Input
-                                                    value={post.author.avatar}
-                                                    onChange={(e) =>
-                                                      updateBlogPost(
-                                                        index,
-                                                        "author",
-                                                        {
-                                                          ...post.author,
-                                                          avatar:
-                                                            e.target.value,
-                                                        }
-                                                      )
-                                                    }
-                                                    placeholder="Or paste avatar URL..."
-                                                    className="text-sm"
-                                                  />
-                                                </div>
                                               </div>
                                             </div>
 
@@ -2165,6 +2336,42 @@ export function BlogEditor() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Media Library Selector */}
+      <MediaLibrarySelector
+        open={mediaLibraryOpen}
+        onOpenChange={setMediaLibraryOpen}
+        onSelect={(url) => {
+          if (currentMediaIndex !== null) {
+            if (mediaLibraryType === "image") {
+              setImagePreviews({
+                ...imagePreviews,
+                [currentMediaIndex]: url,
+              });
+              updateBlogPost(currentMediaIndex, "image", url);
+            } else {
+              setAvatarPreviews({
+                ...avatarPreviews,
+                [currentMediaIndex]: url,
+              });
+              const currentPost = formData.blogs?.[currentMediaIndex];
+              if (currentPost) {
+                updateBlogPost(currentMediaIndex, "author", {
+                  ...currentPost.author,
+                  avatar: url,
+                });
+              }
+            }
+            setMediaLibraryOpen(false);
+            setCurrentMediaIndex(null);
+          }
+        }}
+        title={
+          mediaLibraryType === "image"
+            ? "Select Blog Post Image"
+            : "Select Author Avatar"
+        }
+      />
     </div>
   );
 }

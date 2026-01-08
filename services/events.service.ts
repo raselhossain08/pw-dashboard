@@ -34,18 +34,8 @@ export const eventsService = {
         return res.data
     },
 
-    async toggleActive() {
-        const res = await axios.post<{ data: Events }>('/cms/home/events/toggle-active')
-        return res.data.data || res.data
-    },
-
     async createEvents(data: CreateEventsDto) {
         const res = await axios.post<{ data: Events }>('/cms/home/events', data)
-        return res.data.data || res.data
-    },
-
-    async duplicateEvent(slug: string) {
-        const res = await axios.post<{ data: Events }>(`/cms/home/events/${slug}/duplicate`)
         return res.data.data || res.data
     },
 

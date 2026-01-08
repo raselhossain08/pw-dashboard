@@ -16,8 +16,6 @@ interface UseAboutUsResult {
   updateAboutUs: (id: string, data: Partial<AboutUs>) => Promise<AboutUs | null>;
   updateAboutUsWithUpload: (id: string, formData: FormData) => Promise<AboutUs | null>;
   deleteAboutUs: (id: string) => Promise<boolean>;
-  toggleActiveStatus: (id: string) => Promise<AboutUs | null>;
-  duplicateAboutUs: (id: string) => Promise<AboutUs | null>;
   exportAboutUs: (format: "json" | "pdf", id?: string) => Promise<void>;
   refreshAboutUs: () => Promise<void>;
 }
@@ -34,7 +32,7 @@ export function useAboutUs(): UseAboutUsResult {
     // Check cache first
     const cacheKey = CacheKeys.aboutUs();
     const cached = cacheService.get<AboutUs>(cacheKey);
-    
+
     if (cached) {
       setAboutUs(cached);
       setLoading(false);
@@ -68,7 +66,6 @@ export function useAboutUs(): UseAboutUsResult {
             keywords: [],
             canonicalUrl: "https://personalwings.com/about-us",
           },
-          isActive: true,
         });
         if (createResponse.success && createResponse.data) {
           const data = Array.isArray(createResponse.data)
@@ -127,7 +124,7 @@ export function useAboutUs(): UseAboutUsResult {
   const updateAboutUs = useCallback(
     async (id: string, data: Partial<AboutUs>): Promise<AboutUs | null> => {
       setSaving(true);
-      
+
       // Optimistic update
       const previousData = aboutUs;
       if (aboutUs) {
@@ -142,11 +139,15 @@ export function useAboutUs(): UseAboutUsResult {
             ? response.data[0]
             : response.data;
           setAboutUs(updated);
-          
-          // Update cache
-          const cacheKey = CacheKeys.aboutUs(id);
+
+          // Update cache with both default and ID keys
+          const cacheKey = CacheKeys.aboutUs();
           cacheService.set(cacheKey, updated, 5 * 60 * 1000);
-          
+          if (id) {
+            const cacheKeyWithId = CacheKeys.aboutUs(id);
+            cacheService.set(cacheKeyWithId, updated, 5 * 60 * 1000);
+          }
+
           push({
             message: "About Us page updated successfully!",
             type: "success",
@@ -159,7 +160,7 @@ export function useAboutUs(): UseAboutUsResult {
         if (previousData) {
           setAboutUs(previousData);
         }
-        
+
         const errorMessage =
           err?.response?.data?.message || err?.message || "Failed to update About Us page";
         push({
@@ -180,7 +181,7 @@ export function useAboutUs(): UseAboutUsResult {
       setUploadProgress(0);
       try {
         const response = await AboutUsService.updateAboutUsWithUpload(
-          id, 
+          id,
           formData,
           (progress) => {
             // Update progress in real-time
@@ -192,6 +193,15 @@ export function useAboutUs(): UseAboutUsResult {
             ? response.data[0]
             : response.data;
           setAboutUs(updated);
+
+          // Update cache
+          const cacheKey = CacheKeys.aboutUs();
+          cacheService.set(cacheKey, updated, 5 * 60 * 1000);
+          if (updated._id) {
+            const cacheKeyWithId = CacheKeys.aboutUs(updated._id);
+            cacheService.set(cacheKeyWithId, updated, 5 * 60 * 1000);
+          }
+
           push({
             message: "About Us page updated successfully!",
             type: "success",
@@ -246,69 +256,6 @@ export function useAboutUs(): UseAboutUsResult {
     [push]
   );
 
-  const toggleActiveStatus = useCallback(
-    async (id: string): Promise<AboutUs | null> => {
-      setSaving(true);
-      try {
-        const response = await AboutUsService.toggleActiveStatus(id);
-        if (response.success && response.data) {
-          const updated = Array.isArray(response.data)
-            ? response.data[0]
-            : response.data;
-          setAboutUs(updated);
-          push({
-            message: `About Us page ${updated.isActive ? "activated" : "deactivated"} successfully!`,
-            type: "success",
-          });
-          return updated;
-        }
-        throw new Error(response.message || "Failed to toggle About Us page status");
-      } catch (err: any) {
-        const errorMessage =
-          err?.response?.data?.message || err?.message || "Failed to toggle About Us page status";
-        push({
-          message: errorMessage,
-          type: "error",
-        });
-        return null;
-      } finally {
-        setSaving(false);
-      }
-    },
-    [push]
-  );
-
-  const duplicateAboutUs = useCallback(
-    async (id: string): Promise<AboutUs | null> => {
-      setSaving(true);
-      try {
-        const response = await AboutUsService.duplicateAboutUs(id);
-        if (response.success && response.data) {
-          const duplicated = Array.isArray(response.data)
-            ? response.data[0]
-            : response.data;
-          push({
-            message: "About Us page duplicated successfully!",
-            type: "success",
-          });
-          return duplicated;
-        }
-        throw new Error(response.message || "Failed to duplicate About Us page");
-      } catch (err: any) {
-        const errorMessage =
-          err?.response?.data?.message || err?.message || "Failed to duplicate About Us page";
-        push({
-          message: errorMessage,
-          type: "error",
-        });
-        return null;
-      } finally {
-        setSaving(false);
-      }
-    },
-    [push]
-  );
-
   const exportAboutUs = useCallback(
     async (format: "json" | "pdf", id?: string): Promise<void> => {
       setSaving(true);
@@ -336,8 +283,12 @@ export function useAboutUs(): UseAboutUsResult {
     // Clear cache before fetching fresh data
     const cacheKey = CacheKeys.aboutUs();
     cacheService.delete(cacheKey);
+    // Also clear cache with ID if aboutUs exists
+    if (aboutUs?._id) {
+      cacheService.delete(CacheKeys.aboutUs(aboutUs._id));
+    }
     await fetchAboutUs();
-  }, [fetchAboutUs]);
+  }, [fetchAboutUs, aboutUs]);
 
   useEffect(() => {
     fetchAboutUs();
@@ -354,8 +305,6 @@ export function useAboutUs(): UseAboutUsResult {
     updateAboutUs,
     updateAboutUsWithUpload,
     deleteAboutUs,
-    toggleActiveStatus,
-    duplicateAboutUs,
     exportAboutUs,
     refreshAboutUs,
   };

@@ -3,7 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-import { Upload, X, Loader2 } from "lucide-react";
+import { Upload, X, Loader2, ImageIcon } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +21,7 @@ import {
 import { productsService } from "@/lib/services/products.service";
 import type { Product } from "@/lib/types/product";
 import { useToast } from "@/context/ToastContext";
+import { MediaLibrarySelector } from "@/components/cms/MediaLibrarySelector";
 
 interface ProductFormProps {
   open: boolean;
@@ -44,6 +45,7 @@ export default function ProductForm({
   }>({});
   const [previews, setPreviews] = React.useState<string[]>([]);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [mediaLibraryOpen, setMediaLibraryOpen] = React.useState(false);
   const [formData, setFormData] = React.useState<{
     title: string;
     description: string;
@@ -879,10 +881,7 @@ export default function ProductForm({
             <h3 className="font-semibold text-secondary">Product Images</h3>
 
             {/* Upload Area */}
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-primary/50 transition-colors"
-            >
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -893,9 +892,29 @@ export default function ProductForm({
               />
               <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
               <p className="text-gray-600 font-medium mb-1">
-                Click to upload images
+                Upload or select product images
               </p>
-              <p className="text-gray-400 text-sm">PNG, JPG, WEBP up to 10MB</p>
+              <p className="text-gray-400 text-sm mb-4">
+                PNG, JPG, WEBP up to 10MB
+              </p>
+              <div className="flex gap-2 justify-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload Images
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setMediaLibraryOpen(true)}
+                >
+                  <ImageIcon className="w-4 h-4 mr-2" />
+                  Select from Library
+                </Button>
+              </div>
             </div>
 
             {/* Upload Progress */}
@@ -1010,6 +1029,20 @@ export default function ProductForm({
           </div>
         </div>
       </DialogContent>
+
+      {/* Media Library Selector */}
+      <MediaLibrarySelector
+        open={mediaLibraryOpen}
+        onOpenChange={setMediaLibraryOpen}
+        onSelect={(url: string) => {
+          setFormData({
+            ...formData,
+            images: [...formData.images, url],
+          });
+          setMediaLibraryOpen(false);
+        }}
+        title="Select Product Images"
+      />
     </Dialog>
   );
 }

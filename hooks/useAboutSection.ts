@@ -33,6 +33,8 @@ export function useAboutSection(): UseAboutSectionResult {
             setLoading(true)
             setError(null)
             const data = await aboutSectionService.getAboutSection()
+            console.log('🔍 Fetched About Section Data:', data)
+            console.log('🔍 isActive value:', data?.isActive, 'Type:', typeof data?.isActive)
             setAboutSection(data)
         } catch (err: any) {
             const errorMessage = err?.response?.data?.message || err?.message || 'Failed to fetch about section data.'

@@ -46,6 +46,7 @@ import { useEvents } from "@/hooks/useEvents";
 import Image from "next/image";
 import { uploadService } from "@/services/upload.service";
 import { RichTextEditor } from "@/components/shared/RichTextEditor";
+import { MediaLibrarySelector } from "@/components/cms/MediaLibrarySelector";
 import type {
   Events,
   UpdateEventsDto,
@@ -76,8 +77,6 @@ export function EventsEditor() {
     fetchEvents,
     updateEvents,
     updateEventsWithMedia,
-    toggleActive,
-    duplicateEvent,
     exportEvents,
     refreshEvents,
   } = useEvents();
@@ -100,7 +99,6 @@ export function EventsEditor() {
       keywords: "",
       ogImage: "",
     },
-    isActive: true,
   });
 
   const handleEventImageChange = (
@@ -212,13 +210,11 @@ export function EventsEditor() {
         }
       });
 
-      submitFormData.append("isActive", String(formData.isActive ?? true));
-
       await updateEventsWithMedia(submitFormData);
       setEventImageFiles({});
       fetchEvents();
     } catch (error) {
-      console.error("Failed to update events:", error);
+      // Handle error silently or show user notification
     }
   };
 
@@ -288,8 +284,6 @@ export function EventsEditor() {
       fetchEvents={fetchEvents}
       updateEvents={updateEvents}
       updateEventsWithMedia={updateEventsWithMedia}
-      toggleActive={toggleActive}
-      duplicateEvent={duplicateEvent}
       exportEvents={exportEvents}
       refreshEvents={refreshEvents}
     />
@@ -304,8 +298,6 @@ function EventsForm({
   fetchEvents,
   updateEvents,
   updateEventsWithMedia,
-  toggleActive,
-  duplicateEvent,
   exportEvents,
   refreshEvents,
 }: {
@@ -316,8 +308,6 @@ function EventsForm({
   fetchEvents: () => Promise<void>;
   updateEvents: (dto: Partial<UpdateEventsDto>) => Promise<Events | null>;
   updateEventsWithMedia: (fd: FormData) => Promise<Events | null>;
-  toggleActive: () => Promise<Events | null>;
-  duplicateEvent: (slug: string) => Promise<Events | null>;
   exportEvents: (format: "json" | "pdf") => Promise<void>;
   refreshEvents: () => Promise<void>;
 }) {
@@ -342,6 +332,16 @@ function EventsForm({
   const [selectedDescIndex, setSelectedDescIndex] = useState<number | null>(
     null
   );
+  const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState<number | null>(
+    null
+  );
+  const [videoUploadProgress, setVideoUploadProgress] = useState<{
+    [key: number]: number;
+  }>({});
+  const [uploadingVideo, setUploadingVideo] = useState<{
+    [key: number]: boolean;
+  }>({});
 
   const [formData, setFormData] = useState<UpdateEventsDto>(() => ({
     title: initialEvents?.title || "",
@@ -353,8 +353,33 @@ function EventsForm({
       keywords: "",
       ogImage: "",
     },
-    isActive: initialEvents?.isActive ?? true,
   }));
+
+  // Sync formData when initialEvents changes (after update/refetch)
+  useEffect(() => {
+    if (initialEvents) {
+      const newFormData = {
+        title: initialEvents.title || "",
+        subtitle: initialEvents.subtitle || "",
+        events: initialEvents.events || [],
+        seo: initialEvents.seo || {
+          title: "",
+          description: "",
+          keywords: "",
+          ogImage: "",
+        },
+      };
+
+      setFormData(newFormData);
+
+      // Update previews with existing images
+      const previews: { [key: number]: string } = {};
+      initialEvents.events?.forEach((ev, index) => {
+        if (ev.image) previews[index] = ev.image;
+      });
+      setEventImagePreviews(previews);
+    }
+  }, [initialEvents]);
 
   const handleEventImageChange = async (
     index: number,
@@ -379,7 +404,7 @@ function EventsForm({
       }
     } catch (err) {
       setPerImageProgress((p) => ({ ...p, [index]: 0 }));
-      console.error("Image upload failed:", err);
+      // Handle error silently or show user notification
     }
   };
 
@@ -473,12 +498,34 @@ function EventsForm({
         }
       });
 
-      submitFormData.append("isActive", String(formData.isActive ?? true));
-      await updateEventsWithMedia(submitFormData);
+      const result = await updateEventsWithMedia(submitFormData);
+
+      if (result) {
+        // Directly update formData with the response
+        setFormData({
+          title: result.title || "",
+          subtitle: result.subtitle || "",
+          events: result.events || [],
+          seo: result.seo || {
+            title: "",
+            description: "",
+            keywords: "",
+            ogImage: "",
+          },
+        });
+
+        // Update previews with existing images
+        const previews: { [key: number]: string } = {};
+        result.events?.forEach((ev, index) => {
+          if (ev.image) previews[index] = ev.image;
+        });
+        setEventImagePreviews(previews);
+      }
+
       setEventImageFiles({});
-      await refreshEvents();
+      // Don't call refreshEvents here - we already have the updated data from result
     } catch (error) {
-      console.error("Failed to update events:", error);
+      // Handle error silently or show user notification
     }
   };
 
@@ -487,22 +534,24 @@ function EventsForm({
       formData.events && formData.events.length > 0
         ? Math.max(...formData.events.map((e) => e.id)) + 1
         : 1;
+
+    const newEvent = {
+      id: newId,
+      title: "",
+      image: "",
+      date: "",
+      time: "",
+      venue: "",
+      location: "",
+      slug: "",
+      description: "",
+    };
+
+    const updatedEvents = [...(formData.events || []), newEvent];
+
     setFormData({
       ...formData,
-      events: [
-        ...(formData.events || []),
-        {
-          id: newId,
-          title: "",
-          image: "",
-          date: "",
-          time: "",
-          venue: "",
-          location: "",
-          slug: "",
-          description: "",
-        },
-      ],
+      events: updatedEvents,
     });
   };
 
@@ -519,6 +568,13 @@ function EventsForm({
     setEventImagePreviews(newPreviews);
   };
 
+  const generateSlug = (title: string): string => {
+    return title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  };
+
   const updateEvent = (
     index: number,
     field: keyof Event,
@@ -526,7 +582,56 @@ function EventsForm({
   ) => {
     const newEvents = [...(formData.events || [])];
     newEvents[index] = { ...newEvents[index], [field]: value };
+
+    // Auto-generate slug when title changes
+    if (field === "title" && typeof value === "string") {
+      const slug = generateSlug(value);
+      newEvents[index] = { ...newEvents[index], slug };
+    }
+
     setFormData({ ...formData, events: newEvents });
+  };
+
+  const handleVideoUpload = async (
+    index: number,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("video/")) {
+      alert("Please select a video file");
+      return;
+    }
+
+    setUploadingVideo({ ...uploadingVideo, [index]: true });
+    setVideoUploadProgress({ ...videoUploadProgress, [index]: 0 });
+
+    try {
+      const result = await uploadService.uploadFile(file, {
+        type: "video",
+        onProgress: (progress) => {
+          setVideoUploadProgress({
+            ...videoUploadProgress,
+            [index]: progress.percentage,
+          });
+        },
+      });
+
+      const newEvents = [...(formData.events || [])];
+      if (newEvents[index]) {
+        newEvents[index] = {
+          ...newEvents[index],
+          videoUrl: result.url,
+        } as Event;
+        setFormData({ ...formData, events: newEvents });
+      }
+    } catch (err) {
+      alert("Video upload failed. Please try again.");
+    } finally {
+      setUploadingVideo({ ...uploadingVideo, [index]: false });
+      setVideoUploadProgress({ ...videoUploadProgress, [index]: 0 });
+    }
   };
 
   const handleExport = async (format: "json" | "pdf") => {
@@ -534,18 +639,9 @@ function EventsForm({
     try {
       await exportEvents(format);
     } catch (error) {
-      console.error("Export failed:", error);
+      // Handle error silently or show user notification
     } finally {
       setIsExporting(false);
-    }
-  };
-
-  const handleDuplicate = async (slug: string) => {
-    try {
-      await duplicateEvent(slug);
-      await refreshEvents();
-    } catch (error) {
-      console.error("Duplication failed:", error);
     }
   };
 
@@ -554,16 +650,8 @@ function EventsForm({
       {/* Header Actions */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div className="flex items-center gap-2">
-          <Badge variant={initialEvents?.isActive ? "default" : "secondary"}>
-            {initialEvents?.isActive ? (
-              <>
-                <Eye className="w-3 h-3 mr-1" /> Active
-              </>
-            ) : (
-              <>
-                <EyeOff className="w-3 h-3 mr-1" /> Inactive
-              </>
-            )}
+          <Badge variant="default">
+            <Eye className="w-3 h-3 mr-1" /> Events Section
           </Badge>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -659,28 +747,6 @@ function EventsForm({
                     <CardDescription className="text-blue-100">
                       Manage the main title and subtitle for events section
                     </CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Label
-                      htmlFor="active-toggle"
-                      className="text-sm text-white"
-                    >
-                      Active
-                    </Label>
-                    <Switch
-                      id="active-toggle"
-                      checked={formData.isActive}
-                      onCheckedChange={(checked) => {
-                        setFormData({ ...formData, isActive: checked });
-                        toggleActive();
-                      }}
-                      className="data-[state=checked]:bg-green-500"
-                    />
-                    {formData.isActive ? (
-                      <Eye className="w-5 h-5" />
-                    ) : (
-                      <EyeOff className="w-5 h-5" />
-                    )}
                   </div>
                 </div>
               </CardHeader>
@@ -812,21 +878,6 @@ function EventsForm({
                             </CollapsibleTrigger>
                             <Button
                               type="button"
-                              onClick={() => {
-                                if (event.slug) {
-                                  handleDuplicate(event.slug);
-                                }
-                              }}
-                              variant="ghost"
-                              size="sm"
-                              className="h-8 w-8 p-0 text-blue-500 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-                              title="Duplicate Event"
-                              disabled={saving || loading || !event.slug}
-                            >
-                              <Copy className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              type="button"
                               onClick={() => setPreviewEvent(event)}
                               variant="ghost"
                               size="sm"
@@ -852,98 +903,225 @@ function EventsForm({
                       <CollapsibleContent>
                         <CardContent className="space-y-4">
                           <div className="space-y-2">
-                            <Label className="text-sm font-semibold">
+                            <Label className="text-sm font-semibold flex items-center gap-2">
+                              <ImageIcon className="w-4 h-4" />
                               Event Image
                             </Label>
                             <div
-                              className={`relative border-2 border-dashed rounded-xl p-4 text-center transition-colors ${
+                              className={`relative border-2 border-dashed rounded-xl p-4 text-center transition-all duration-300 ${
                                 perImageProgress[index] > 0 &&
                                 perImageProgress[index] < 100
-                                  ? "border-blue-400 bg-blue-50"
-                                  : "border-blue-200 hover:border-blue-400 cursor-pointer bg-white dark:bg-gray-800"
+                                  ? "border-blue-500 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 shadow-lg"
+                                  : "border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 cursor-pointer bg-white dark:bg-gray-800 hover:shadow-md"
                               }`}
                             >
                               {perImageProgress[index] > 0 &&
                               perImageProgress[index] < 100 ? (
-                                <div className="space-y-3">
-                                  <RefreshCw className="mx-auto h-12 w-12 text-blue-500 animate-spin" />
-                                  <div>
-                                    <p className="text-base font-semibold text-blue-700">
+                                <div className="space-y-4 py-4">
+                                  <div className="relative">
+                                    <div className="mx-auto h-16 w-16 rounded-full bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center animate-pulse">
+                                      <Upload className="h-8 w-8 text-white animate-bounce" />
+                                    </div>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <p className="text-lg font-bold text-blue-700 dark:text-blue-300">
                                       Uploading Image...
                                     </p>
-                                    <p className="text-sm text-blue-600 mt-1 font-medium">
-                                      {perImageProgress[index]}% Complete
-                                    </p>
+                                    <div className="flex items-center justify-center gap-2">
+                                      <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></div>
+                                      <p className="text-2xl font-extrabold text-blue-600 dark:text-blue-400">
+                                        {perImageProgress[index]}%
+                                      </p>
+                                      <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse"></div>
+                                    </div>
                                   </div>
-                                  <Progress
-                                    value={perImageProgress[index]}
-                                    className="w-full h-3 bg-blue-100"
-                                  />
+                                  <div className="space-y-2">
+                                    <Progress
+                                      value={perImageProgress[index]}
+                                      className="w-full h-4 bg-gray-200 dark:bg-gray-700"
+                                    />
+                                    <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
+                                      <span>0%</span>
+                                      <span className="font-semibold text-blue-600 dark:text-blue-400">
+                                        {perImageProgress[index]}% Complete
+                                      </span>
+                                      <span>100%</span>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
+                                    <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-ping"></div>
+                                    <span>Please wait...</span>
+                                  </div>
                                 </div>
                               ) : eventImagePreviews[index] ? (
                                 <div className="space-y-3">
-                                  <div className="relative w-full h-40 rounded-lg overflow-hidden border-2 border-blue-100 shadow-sm mx-auto max-w-md">
+                                  <div className="relative w-full h-48 rounded-xl overflow-hidden border-2 border-green-200 dark:border-green-800 shadow-md mx-auto max-w-md group">
                                     <Image
                                       src={eventImagePreviews[index]}
                                       alt={`Event ${index + 1}`}
                                       fill
-                                      className="object-cover"
+                                      className="object-cover transition-transform duration-300 group-hover:scale-105"
                                       unoptimized
                                     />
+                                    <div className="absolute top-2 right-2 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1 shadow-lg">
+                                      <div className="h-2 w-2 rounded-full bg-white animate-pulse"></div>
+                                      Uploaded
+                                    </div>
                                   </div>
-                                  <p className="text-sm text-gray-600 font-medium">
-                                    Image Ready
-                                  </p>
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                      const newFiles = { ...eventImageFiles };
-                                      const newPreviews = {
-                                        ...eventImagePreviews,
-                                      };
-                                      delete newFiles[index];
-                                      newPreviews[index] = event.image || "";
-                                      setEventImageFiles(newFiles);
-                                      setEventImagePreviews(newPreviews);
-                                    }}
-                                    className="border-2 hover:border-blue-400 hover:bg-blue-50"
-                                  >
-                                    <RefreshCw className="w-4 h-4 mr-2" />
-                                    Change Image
-                                  </Button>
+                                  <div className="flex items-center justify-center gap-2">
+                                    <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                                    <p className="text-sm text-green-700 dark:text-green-400 font-semibold">
+                                      Image Ready to Save
+                                    </p>
+                                  </div>
+                                  <div className="flex items-center justify-center gap-2">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setCurrentImageIndex(index);
+                                        setMediaLibraryOpen(true);
+                                      }}
+                                      className="border-2 border-purple-300 hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all"
+                                    >
+                                      <ImageIcon className="w-4 h-4 mr-2" />
+                                      Select from Library
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        const newFiles = { ...eventImageFiles };
+                                        const newPreviews = {
+                                          ...eventImagePreviews,
+                                        };
+                                        delete newFiles[index];
+                                        newPreviews[index] = event.image || "";
+                                        setEventImageFiles(newFiles);
+                                        setEventImagePreviews(newPreviews);
+                                        setPerImageProgress((p) => {
+                                          const updated = { ...p };
+                                          delete updated[index];
+                                          return updated;
+                                        });
+                                      }}
+                                      className="border-2 border-blue-300 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
+                                    >
+                                      <RefreshCw className="w-4 h-4 mr-2" />
+                                      Change Upload
+                                    </Button>
+                                  </div>
                                 </div>
                               ) : (
-                                <div className="text-center py-8">
-                                  <Upload className="mx-auto h-12 w-12 text-gray-400 mb-3" />
-                                  <p className="text-sm font-medium text-gray-700 mb-1">
-                                    Click to upload or drag and drop
+                                <div className="text-center py-10">
+                                  <div className="relative inline-block mb-4">
+                                    <Upload className="mx-auto h-14 w-14 text-gray-400 dark:text-gray-500" />
+                                    <div className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center">
+                                      <Plus className="h-3 w-3 text-white" />
+                                    </div>
+                                  </div>
+                                  <p className="text-base font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                                    Upload or Select from Library
                                   </p>
-                                  <p className="text-xs text-gray-500">
+                                  <div className="flex items-center justify-center gap-3 mb-4 relative z-10">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setCurrentImageIndex(index);
+                                        setMediaLibraryOpen(true);
+                                      }}
+                                      className="border-2 border-purple-300 hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 relative z-20 pointer-events-auto"
+                                    >
+                                      <ImageIcon className="w-4 h-4 mr-2" />
+                                      Select from Library
+                                    </Button>
+                                  </div>
+                                  <div className="relative">
+                                    <div className="absolute inset-0 flex items-center">
+                                      <div className="w-full border-t border-gray-300"></div>
+                                    </div>
+                                    <div className="relative flex justify-center text-xs">
+                                      <span className="bg-white dark:bg-gray-800 px-2 text-gray-500">
+                                        or drag and drop to upload
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-3">
                                     PNG, JPG, GIF up to 10MB
                                   </p>
+                                  <div className="mt-2 flex items-center justify-center gap-2 text-xs text-gray-400">
+                                    <ImageIcon className="w-3 h-3" />
+                                    <span>Recommended: 1200x630px</span>
+                                  </div>
                                 </div>
                               )}
                               {!(
                                 perImageProgress[index] > 0 &&
                                 perImageProgress[index] < 100
-                              ) && (
-                                <Input
+                              ) &&
+                                !eventImagePreviews[index] && (
+                                  <Input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) =>
+                                      handleEventImageChange(index, e)
+                                    }
+                                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed pointer-events-none"
+                                    style={{ pointerEvents: "none" }}
+                                    disabled={saving || loading}
+                                  />
+                                )}
+                              <div
+                                className={`absolute inset-0 ${
+                                  perImageProgress[index] > 0 &&
+                                  perImageProgress[index] < 100
+                                    ? "pointer-events-none"
+                                    : eventImagePreviews[index]
+                                    ? "pointer-events-none"
+                                    : "cursor-pointer"
+                                }`}
+                                onClick={(e) => {
+                                  if (
+                                    !eventImagePreviews[index] &&
+                                    !(
+                                      perImageProgress[index] > 0 &&
+                                      perImageProgress[index] < 100
+                                    )
+                                  ) {
+                                    const fileInput = document.getElementById(
+                                      `event-image-${index}`
+                                    ) as HTMLInputElement;
+                                    if (fileInput) {
+                                      fileInput.click();
+                                    }
+                                  }
+                                }}
+                              >
+                                <input
+                                  id={`event-image-${index}`}
                                   type="file"
                                   accept="image/*"
                                   onChange={(e) =>
                                     handleEventImageChange(index, e)
                                   }
-                                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                  className="hidden"
+                                  disabled={saving || loading}
                                 />
-                              )}
+                              </div>
                             </div>
                           </div>
 
                           <div className="space-y-2">
-                            <Label className="text-sm font-semibold">
+                            <Label className="text-sm font-semibold flex items-center gap-2">
                               Title
+                              <Badge variant="secondary" className="text-xs">
+                                Auto-generates slug
+                              </Badge>
                             </Label>
                             <Input
                               value={event.title}
@@ -974,11 +1152,12 @@ function EventsForm({
                                 Date
                               </Label>
                               <Input
+                                type="date"
                                 value={event.date}
                                 onChange={(e) =>
                                   updateEvent(index, "date", e.target.value)
                                 }
-                                placeholder="15 Dec 2024"
+                                className="cursor-pointer"
                               />
                             </div>
                             <div className="space-y-2">
@@ -1043,30 +1222,124 @@ function EventsForm({
                               />
                             </div>
                             <div className="space-y-2">
-                              <Label className="text-sm font-semibold">
-                                Video URL
+                              <Label className="text-sm font-semibold flex items-center gap-2">
+                                <FileText className="w-4 h-4" />
+                                Video URL or Upload
                               </Label>
-                              <Input
-                                value={event.videoUrl || ""}
-                                onChange={(e) =>
-                                  updateEvent(index, "videoUrl", e.target.value)
-                                }
-                                placeholder="https://youtube.com/..."
-                              />
+                              {uploadingVideo[index] ? (
+                                <div className="space-y-2 p-4 border-2 border-blue-500 rounded-lg bg-blue-50 dark:bg-blue-900/20">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+                                      Uploading Video...
+                                    </span>
+                                    <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
+                                      {videoUploadProgress[index]}%
+                                    </span>
+                                  </div>
+                                  <Progress
+                                    value={videoUploadProgress[index]}
+                                    className="h-3"
+                                  />
+                                  <p className="text-xs text-blue-600 dark:text-blue-400">
+                                    Please wait while your video is being
+                                    uploaded...
+                                  </p>
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  <Input
+                                    value={event.videoUrl || ""}
+                                    onChange={(e) =>
+                                      updateEvent(
+                                        index,
+                                        "videoUrl",
+                                        e.target.value
+                                      )
+                                    }
+                                    placeholder="https://youtube.com/... or upload below"
+                                  />
+                                  <div className="flex items-center gap-2">
+                                    <div className="relative flex-1">
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="w-full border-2 border-dashed hover:border-blue-500"
+                                        onClick={() => {
+                                          document
+                                            .getElementById(
+                                              `video-upload-${index}`
+                                            )
+                                            ?.click();
+                                        }}
+                                      >
+                                        <Upload className="w-4 h-4 mr-2" />
+                                        Upload Video
+                                      </Button>
+                                      <input
+                                        id={`video-upload-${index}`}
+                                        type="file"
+                                        accept="video/*"
+                                        onChange={(e) =>
+                                          handleVideoUpload(index, e)
+                                        }
+                                        className="hidden"
+                                      />
+                                    </div>
+                                    {event.videoUrl && (
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={() => {
+                                          window.open(event.videoUrl, "_blank");
+                                        }}
+                                      >
+                                        <ExternalLink className="w-4 h-4" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
 
                           <div className="space-y-2">
-                            <Label className="text-sm font-semibold">
+                            <Label className="text-sm font-semibold flex items-center gap-2">
                               URL Slug
+                              <Badge
+                                variant="outline"
+                                className="text-xs bg-green-50 text-green-700 border-green-300"
+                              >
+                                Auto-generated from title
+                              </Badge>
                             </Label>
-                            <Input
-                              value={event.slug}
-                              onChange={(e) =>
-                                updateEvent(index, "slug", e.target.value)
-                              }
-                              placeholder="event-slug-url"
-                            />
+                            <div className="flex gap-2">
+                              <Input
+                                value={event.slug}
+                                onChange={(e) =>
+                                  updateEvent(index, "slug", e.target.value)
+                                }
+                                placeholder="event-slug-url"
+                                className="flex-1"
+                              />
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => {
+                                  if (event.title) {
+                                    updateEvent(
+                                      index,
+                                      "slug",
+                                      generateSlug(event.title)
+                                    );
+                                  }
+                                }}
+                                title="Regenerate slug from title"
+                              >
+                                <RefreshCw className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </div>
 
                           {/* Training Content Section */}
@@ -2176,6 +2449,30 @@ function EventsForm({
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Media Library Selector */}
+      <MediaLibrarySelector
+        open={mediaLibraryOpen}
+        onOpenChange={setMediaLibraryOpen}
+        onSelect={(url) => {
+          if (currentImageIndex !== null) {
+            setEventImagePreviews({
+              ...eventImagePreviews,
+              [currentImageIndex]: url,
+            });
+            const newEvents = [...(formData.events || [])];
+            if (newEvents[currentImageIndex]) {
+              newEvents[currentImageIndex] = {
+                ...newEvents[currentImageIndex],
+                image: url,
+              } as Event;
+              setFormData({ ...formData, events: newEvents });
+            }
+            setCurrentImageIndex(null);
+          }
+        }}
+        title="Select Event Image"
+      />
     </div>
   );
 }

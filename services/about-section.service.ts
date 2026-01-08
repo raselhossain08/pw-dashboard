@@ -1,5 +1,6 @@
 import axios from '@/lib/axios'
 import type { AboutSection, CreateAboutSectionDto, UpdateAboutSectionDto } from '@/lib/types/about-section'
+import { transformApiResponse } from '@/lib/api-utils'
 
 /**
  * API Response wrapper interface
@@ -54,8 +55,8 @@ const withRetry = async <T>(
             lastError = error;
 
             // Check if error is retryable
-            const isRetryable = 
-                error?.response?.status && 
+            const isRetryable =
+                error?.response?.status &&
                 RETRY_CONFIG.retryableStatuses.includes(error.response.status);
 
             // Don't retry on last attempt or non-retryable errors
@@ -73,20 +74,6 @@ const withRetry = async <T>(
     throw lastError!;
 };
 
-/**
- * Transform API response to extract data
- */
-const transformResponse = <T>(response: any): T => {
-    // Handle nested data structure from backend interceptor
-    if (response.data?.data) {
-        return response.data.data;
-    }
-    if (response.data) {
-        return response.data;
-    }
-    return response;
-};
-
 export const aboutSectionService = {
     /**
      * Get about section data
@@ -95,7 +82,7 @@ export const aboutSectionService = {
     async getAboutSection(): Promise<AboutSection> {
         return withRetry(async () => {
             const res = await axios.get<ApiResponse<AboutSection>>('/cms/home/about-section');
-            return transformResponse<AboutSection>(res);
+            return transformApiResponse<AboutSection>(res, ['isActive']);
         });
     },
 
@@ -118,7 +105,7 @@ export const aboutSectionService = {
                     },
                 }
             );
-            return transformResponse<AboutSection>(res);
+            return transformApiResponse<AboutSection>(res, ['isActive']);
         });
     },
 
@@ -156,12 +143,12 @@ export const aboutSectionService = {
             return {
                 success: true,
                 message: res.data?.message || 'Upload successful',
-                data: transformResponse<AboutSection>(res),
+                data: transformApiResponse<AboutSection>(res),
                 meta: res.data?.meta
             };
         } catch (error: any) {
             console.error('Upload failed:', error);
-            
+
             // Provide user-friendly error messages
             let errorMessage = 'Failed to upload media';
             if (error.code === 'ECONNABORTED') {
@@ -187,7 +174,7 @@ export const aboutSectionService = {
             const res = await axios.post<ApiResponse<AboutSection>>(
                 '/cms/home/about-section/toggle-active'
             );
-            return transformResponse<AboutSection>(res);
+            return transformApiResponse<AboutSection>(res, ['isActive']);
         });
     },
 
@@ -200,7 +187,7 @@ export const aboutSectionService = {
             const res = await axios.post<ApiResponse<AboutSection>>(
                 '/cms/home/about-section/duplicate'
             );
-            return transformResponse<AboutSection>(res);
+            return transformApiResponse<AboutSection>(res, ['isActive']);
         });
     },
 
@@ -244,7 +231,7 @@ export const aboutSectionService = {
             if (!res.ok) {
                 const errorData = await res.json().catch(() => ({}));
                 throw new Error(
-                    errorData.message || 
+                    errorData.message ||
                     `Failed to export about section (${res.status}: ${res.statusText})`
                 );
             }
@@ -252,7 +239,7 @@ export const aboutSectionService = {
             // Get filename from header or generate default
             const contentDisposition = res.headers.get('Content-Disposition');
             let filename = `about-section-export_${new Date().toISOString().split('T')[0]}.${format === 'pdf' ? 'pdf' : 'json'}`;
-            
+
             if (contentDisposition) {
                 const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
                 if (filenameMatch) {
@@ -268,7 +255,7 @@ export const aboutSectionService = {
             link.style.display = 'none';
             document.body.appendChild(link);
             link.click();
-            
+
             // Cleanup
             setTimeout(() => {
                 document.body.removeChild(link);
