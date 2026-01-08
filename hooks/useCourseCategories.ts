@@ -6,6 +6,7 @@ import {
   CourseCategory,
   CreateCategoryDto,
   UpdateCategoryDto,
+  GetCategoriesParams,
 } from "@/services/course-categories.service";
 import { useToast } from "@/context/ToastContext";
 
@@ -29,14 +30,7 @@ interface UseCourseCategoriesResult {
   } | null;
   stats: CategoryStats | null;
   statsLoading: boolean;
-  fetchCategories: (params?: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    isActive?: boolean;
-    sortBy?: string;
-    sortOrder?: "asc" | "desc";
-  }) => Promise<void>;
+  fetchCategories: (params?: GetCategoriesParams) => Promise<void>;
   getCategory: (id: string) => Promise<CourseCategory | null>;
   createCategory: (data: CreateCategoryDto) => Promise<CourseCategory | null>;
   updateCategory: (slug: string, data: UpdateCategoryDto) => Promise<CourseCategory | null>;
@@ -60,14 +54,7 @@ export function useCourseCategories(): UseCourseCategoriesResult {
   const [statsLoading, setStatsLoading] = useState<boolean>(false);
 
   const fetchCategories = useCallback(
-    async (params: {
-      page?: number;
-      limit?: number;
-      search?: string;
-      isActive?: boolean;
-      sortBy?: string;
-      sortOrder?: "asc" | "desc";
-    } = {}) => {
+    async (params: GetCategoriesParams = {}) => {
       setLoading(true);
       setError(null);
       try {

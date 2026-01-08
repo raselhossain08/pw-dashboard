@@ -13,6 +13,8 @@ export interface TrainingProgram {
     _id: string;
     title: string;
     description: string;
+    excerpt?: string;
+    type?: "theoretical" | "practical" | "simulator" | "combined";
     instructor: {
         _id: string;
         firstName?: string;
@@ -22,12 +24,19 @@ export interface TrainingProgram {
     } | string;
     courses: CourseSequence[];
     duration: number;
+    durationHours?: number;
     level: "beginner" | "intermediate" | "advanced";
     thumbnail?: string;
     tags: string[];
     isPublished: boolean;
     completionCertificate: boolean;
+    certificateAvailable?: boolean;
     maxEnrollments?: number;
+    maxStudents?: number;
+    enrollmentCount?: number;
+    studentCount?: number;
+    rating?: number;
+    status?: string;
     startDate?: Date;
     endDate?: Date;
     price: number;
@@ -70,14 +79,19 @@ export interface ProgramStats {
 export interface CreateTrainingProgramDto {
     title: string;
     description: string;
-    instructor: string;
-    courses: CourseSequence[];
+    excerpt?: string;
+    type?: "theoretical" | "practical" | "simulator" | "combined";
+    instructor?: string;
+    courses?: CourseSequence[];
     level: "beginner" | "intermediate" | "advanced";
     thumbnail?: string;
     tags?: string[];
     isPublished?: boolean;
     completionCertificate?: boolean;
+    certificateAvailable?: boolean;
     maxEnrollments?: number;
+    maxStudents?: number;
+    durationHours?: number;
     startDate?: Date;
     endDate?: Date;
     price: number;

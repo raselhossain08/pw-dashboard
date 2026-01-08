@@ -142,7 +142,7 @@ export default function TrainingProgramsNew() {
       return {
         id: p._id,
         title: p.title,
-        type: p.type,
+        type: p.type || "theoretical",
         level: p.level,
         description: p.excerpt || p.description,
         price: p.price,

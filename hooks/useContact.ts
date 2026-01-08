@@ -105,7 +105,8 @@ export function useContact(): UseContactResult {
             clearInterval(progressInterval);
             setUploadProgress(100);
 
-            const updated = (response.data.data as any).data || response.data.data;
+            const responseData = response.data as any;
+            const updated = responseData.data?.data || responseData.data || responseData;
             setContact(updated);
             push({ message: 'Contact updated successfully with image', type: 'success' });
             setTimeout(() => setUploadProgress(0), 1000);

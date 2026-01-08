@@ -55,13 +55,13 @@ export function useCMSOverview(): UseCMSOverviewResult {
           },
           events: {
             total: events?.events?.length || 0,
-            active: events?.isActive ? (events?.events?.length || 0) : 0,
-            inactive: events?.isActive ? 0 : (events?.events?.length || 0),
+            active: events?.events?.length || 0,
+            inactive: 0,
           },
           testimonials: {
             total: testimonials?.testimonials?.length || 0,
-            active: testimonials?.isActive ? (testimonials?.testimonials?.length || 0) : 0,
-            inactive: testimonials?.isActive ? 0 : (testimonials?.testimonials?.length || 0),
+            active: testimonials?.testimonials?.length || 0,
+            inactive: 0,
           },
           blogPosts: {
             total: blog?.blogs?.length || 0,
@@ -122,9 +122,9 @@ export function useCMSOverview(): UseCMSOverviewResult {
             icon: "Calendar",
             status: eventsLoading
               ? "loading"
-              : events?.isActive
-                ? "active"
-                : "inactive",
+              : (events?.events?.length || 0) > 0
+                ? "configured"
+                : "empty",
             category: "home",
             hasContent: (events?.events?.length || 0) > 0,
           },
@@ -135,9 +135,9 @@ export function useCMSOverview(): UseCMSOverviewResult {
             icon: "MessageSquare",
             status: testimonialsLoading
               ? "loading"
-              : testimonials?.isActive
-                ? "active"
-                : "inactive",
+              : (testimonials?.testimonials?.length || 0) > 0
+                ? "configured"
+                : "empty",
             category: "home",
             hasContent: (testimonials?.testimonials?.length || 0) > 0,
           },

@@ -10,7 +10,10 @@ import {
   CreateReplyDto,
   RateTicketDto,
   TicketsResponse,
-  TicketStats
+  TicketStats,
+  TicketStatus,
+  TicketCategory,
+  TicketPriority
 } from "@/services/support.service";
 import { useToast } from "@/context/ToastContext";
 import { useSupportTicketsStore } from "@/store/supportTicketsStore";
@@ -45,9 +48,9 @@ export function useSupport() {
   const fetchTickets = async (params: {
     page?: number;
     limit?: number;
-    status?: string;
-    category?: string;
-    priority?: string;
+    status?: TicketStatus;
+    category?: TicketCategory;
+    priority?: TicketPriority;
     assignedTo?: string;
     userId?: string;
   } = {}) => {

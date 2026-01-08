@@ -83,9 +83,9 @@ function UserAnalytics() {
           apiClient.get("/admin/users/role-distribution"),
           apiClient.get("/admin/users/activity-summary?days=30"),
         ]);
-        
+
         setAnalytics({
-          ...analyticsRes.data,
+          ...(analyticsRes.data || {}),
           roleDistribution: roleDistRes.data,
           activitySummary: activityRes.data,
         });
@@ -127,16 +127,17 @@ function UserAnalytics() {
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           {roleDistribution?.distribution?.map((role: any) => (
-            <div key={role._id} className="text-center p-4 bg-gray-50 rounded-lg">
+            <div
+              key={role._id}
+              className="text-center p-4 bg-gray-50 rounded-lg"
+            >
               <div className="text-2xl font-bold text-primary mb-1">
                 {role.count}
               </div>
               <div className="text-sm text-gray-600 capitalize mb-1">
-                {role._id?.replace('_', ' ') || 'Unknown'}
+                {role._id?.replace("_", " ") || "Unknown"}
               </div>
-              <div className="text-xs text-gray-500">
-                {role.active} active
-              </div>
+              <div className="text-xs text-gray-500">{role.active} active</div>
             </div>
           ))}
         </div>
