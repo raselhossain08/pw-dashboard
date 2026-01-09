@@ -88,16 +88,42 @@ export default function Certificates() {
     queryKey: ["my-certificates"],
     queryFn: () => certificatesService.getMyCertificates(),
   });
-  const { data: coursesData } = useQuery({
-    queryKey: ["courses", { page: 1, limit: 50, isPublished: true }],
-    queryFn: () =>
-      coursesService.getAllCourses({ page: 1, limit: 50, isPublished: true }),
+  const { 
+    data: coursesData, 
+    isLoading: coursesLoading,
+    error: coursesError 
+  } = useQuery({
+    queryKey: ["courses", { page: 1, limit: 100 }],
+    queryFn: () => coursesService.getAllCourses({ page: 1, limit: 100 }),
+    retry: 2,
   });
+  
   const courseList: any[] = React.useMemo(() => {
     const raw: any = coursesData as any;
-    if (Array.isArray(raw)) return raw;
-    if (Array.isArray(raw?.data)) return raw.data;
-    if (Array.isArray(raw?.courses)) return raw.courses;
+    
+    console.log("Certificates - Raw courses data:", raw);
+    
+    // Backend returns: { success: true, data: { courses: [...], total, page, totalPages } }
+    if (raw?.data?.courses && Array.isArray(raw.data.courses)) {
+      console.log("Found courses in raw.data.courses:", raw.data.courses.length);
+      return raw.data.courses;
+    }
+    
+    // Fallback checks for other possible structures
+    if (Array.isArray(raw?.courses)) {
+      console.log("Found courses in raw.courses:", raw.courses.length);
+      return raw.courses;
+    }
+    if (Array.isArray(raw?.data)) {
+      console.log("Found courses in raw.data:", raw.data.length);
+      return raw.data;
+    }
+    if (Array.isArray(raw)) {
+      console.log("Found courses in raw:", raw.length);
+      return raw;
+    }
+    
+    console.log("No courses found, returning empty array");
     return [];
   }, [coursesData]);
   const [selectedCourseId, setSelectedCourseId] = React.useState<string>("");
@@ -393,9 +419,15 @@ export default function Certificates() {
                 Active Courses
               </p>
               <p className="text-2xl font-bold text-secondary mt-1">
-                {courseList.length}
+                {coursesLoading ? "..." : courseList.length}
               </p>
-              <p className="text-gray-500 text-sm mt-1">Available courses</p>
+              <p className="text-gray-500 text-sm mt-1">
+                {coursesLoading 
+                  ? "Loading..." 
+                  : coursesError 
+                  ? "Failed to load" 
+                  : "Available courses"}
+              </p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
               <BookOpen className="text-blue-600 w-6 h-6" />
@@ -436,10 +468,10 @@ export default function Certificates() {
               <SelectTrigger className="bg-gray-50 border border-gray-200 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-xs sm:text-sm w-full sm:w-40">
                 <SelectValue placeholder="All Courses" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="All Courses">All Courses</SelectItem>
+              <SelectContent className="max-h-[300px]">
+                <SelectItem value="All Courses">All Courses ({courseList.length})</SelectItem>
                 {courseList.map((c: any) => (
-                  <SelectItem key={c._id} value={c.title}>
+                  <SelectItem key={c._id} value={c.title} className="cursor-pointer">
                     {c.title}
                   </SelectItem>
                 ))}
@@ -591,6 +623,7 @@ export default function Certificates() {
                             setPreviewOpen(true);
                           }}
                           className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-7 w-7 sm:h-8 sm:w-8 p-0"
+                          type="button"
                         >
                           <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </Button>
@@ -599,6 +632,7 @@ export default function Certificates() {
                           size="sm"
                           onClick={() => handleDownloadCertificate(it)}
                           className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity h-7 w-7 sm:h-8 sm:w-8 p-0"
+                          type="button"
                         >
                           <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                         </Button>
@@ -608,6 +642,7 @@ export default function Certificates() {
                               variant="ghost"
                               size="sm"
                               className="h-7 w-7 sm:h-8 sm:w-8 p-0"
+                              type="button"
                             >
                               <EllipsisVertical className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                             </Button>
@@ -827,24 +862,37 @@ export default function Certificates() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3 sm:gap-4">
-          {/* Bulk Issue */}
-          <button className="group flex items-center gap-3 p-3 sm:p-4 bg-accent/5 hover:bg-accent/10 rounded-lg transition-all duration-200 border border-accent/10 hover:border-accent/30 hover:shadow-md">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-accent rounded-lg flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-              <Bolt className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-            </div>
-            <div className="text-left flex-1 min-w-0">
-              <p className="font-semibold text-secondary text-sm sm:text-base truncate">
-                Bulk Issue
-              </p>
-              <p className="text-xs sm:text-sm text-muted-foreground">
-                Multiple certificates
-              </p>
-            </div>
-          </button>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+          {/* Bulk Issue - Only for admins */}
+          {isAdmin && (
+            <Button
+              variant="outline"
+              className="group flex items-center gap-3 p-3 sm:p-4 bg-accent/5 hover:bg-accent/10 rounded-lg transition-all duration-200 border border-accent/10 hover:border-accent/30 hover:shadow-md h-auto justify-start"
+              onClick={() => {
+                // Navigate to admin tab or show bulk generation dialog
+                push({ 
+                  type: "info", 
+                  message: "Please use the Admin Generator tab for bulk certificate generation" 
+                });
+              }}
+              type="button"
+            >
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-accent rounded-lg flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                <Bolt className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              </div>
+              <div className="text-left flex-1 min-w-0">
+                <p className="font-semibold text-secondary text-sm sm:text-base truncate">
+                  Bulk Issue
+                </p>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Multiple certificates
+                </p>
+              </div>
+            </Button>
+          )}
 
-          {/* Generate Certificate - Full Width on Mobile, 2 cols on larger screens */}
-          <div className="sm:col-span-3 lg:col-span-2 xl:col-span-1 flex flex-col gap-3 p-3 sm:p-4 bg-chart-2/5 rounded-lg border border-chart-2/10">
+          {/* Generate Certificate */}
+          <div className="flex flex-col gap-3 p-3 sm:p-4 bg-chart-2/5 rounded-lg border border-chart-2/10">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-chart-2 rounded-lg flex items-center justify-center shrink-0">
                 <Download className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
@@ -854,37 +902,60 @@ export default function Certificates() {
                   Generate Certificate
                 </p>
                 <p className="text-xs sm:text-sm text-muted-foreground">
-                  For selected course
+                  For completed course
                 </p>
               </div>
             </div>
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
               <Select
                 value={selectedCourseId}
-                onValueChange={setSelectedCourseId}
+                onValueChange={(value) => {
+                  console.log("Quick Action - Course selected:", value);
+                  setSelectedCourseId(value);
+                }}
+                disabled={coursesLoading || courseList.length === 0}
               >
                 <SelectTrigger className="bg-card border-border text-xs sm:text-sm flex-1">
-                  <SelectValue placeholder="Select course" />
+                  <SelectValue 
+                    placeholder={
+                      coursesLoading 
+                        ? "Loading courses..." 
+                        : courseList.length === 0 
+                        ? "No courses available" 
+                        : `Select course (${courseList.length} available)`
+                    } 
+                  />
                 </SelectTrigger>
-                <SelectContent>
-                  {courseList.map((c: any) => (
-                    <SelectItem
-                      key={c._id}
-                      value={c._id}
-                      className="text-xs sm:text-sm"
-                    >
-                      <span className="truncate block max-w-[200px] sm:max-w-full">
-                        {c.title}
-                      </span>
-                    </SelectItem>
-                  ))}
+                <SelectContent className="max-h-[300px]">
+                  {coursesLoading ? (
+                    <div className="p-4 text-center text-xs sm:text-sm text-muted-foreground">
+                      Loading courses...
+                    </div>
+                  ) : courseList.length === 0 ? (
+                    <div className="p-4 text-center text-xs sm:text-sm text-muted-foreground">
+                      No courses available
+                    </div>
+                  ) : (
+                    courseList.map((c: any) => (
+                      <SelectItem
+                        key={c._id}
+                        value={c._id}
+                        className="text-xs sm:text-sm cursor-pointer"
+                      >
+                        <span className="truncate block max-w-[200px] sm:max-w-full">
+                          {c.title}
+                        </span>
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
               <Button
                 onClick={() => generateMutation.mutate()}
-                disabled={generateMutation.isPending || !selectedCourseId}
+                disabled={generateMutation.isPending || !selectedCourseId || courseList.length === 0}
                 className="bg-chart-2 hover:bg-chart-2/90 text-white text-xs sm:text-sm w-full sm:w-auto"
                 size="sm"
+                type="button"
               >
                 {generateMutation.isPending ? (
                   <>
@@ -981,6 +1052,7 @@ export default function Certificates() {
                   size="sm"
                   variant="outline"
                   onClick={() => selected && copyVerificationLink(selected)}
+                  type="button"
                 >
                   <Copy className="w-4 h-4" />
                 </Button>
@@ -998,6 +1070,7 @@ export default function Certificates() {
                   onClick={() =>
                     selected && shareToSocial("linkedin", selected)
                   }
+                  type="button"
                 >
                   <svg
                     className="w-5 h-5"
@@ -1012,6 +1085,7 @@ export default function Certificates() {
                   variant="outline"
                   className="w-full"
                   onClick={() => selected && shareToSocial("twitter", selected)}
+                  type="button"
                 >
                   <svg
                     className="w-5 h-5"
@@ -1028,6 +1102,7 @@ export default function Certificates() {
                   onClick={() =>
                     selected && shareToSocial("facebook", selected)
                   }
+                  type="button"
                 >
                   <svg
                     className="w-5 h-5"
@@ -1045,6 +1120,7 @@ export default function Certificates() {
               <Button
                 className="flex-1"
                 onClick={() => selected && downloadPDFCertificate(selected)}
+                type="button"
               >
                 <Download className="w-4 h-4 mr-2" />
                 Download PDF
@@ -1057,6 +1133,7 @@ export default function Certificates() {
                     resendEmailMutation.mutate(selected.certificateId);
                   }
                 }}
+                type="button"
               >
                 <Mail className="w-4 h-4 mr-2" />
                 Email
@@ -1111,6 +1188,7 @@ export default function Certificates() {
             <Button
               variant="outline"
               onClick={() => setRevokeDialogOpen(false)}
+              type="button"
             >
               Cancel
             </Button>
@@ -1128,6 +1206,7 @@ export default function Certificates() {
                   setRevokeDialogOpen(false);
                 }
               }}
+              type="button"
             >
               <Ban className="w-4 h-4 mr-2" />
               Revoke Certificate

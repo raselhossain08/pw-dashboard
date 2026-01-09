@@ -51,13 +51,21 @@ export default function AdminCertificateGenerator() {
     string[]
   >([]);
 
-  const { data: coursesData, isLoading: coursesLoading, error: coursesError } = useQuery({
+  const {
+    data: coursesData,
+    isLoading: coursesLoading,
+    error: coursesError,
+  } = useQuery({
     queryKey: ["courses", { page: 1, limit: 100 }],
     queryFn: () => coursesService.getAllCourses({ page: 1, limit: 100 }),
     retry: 2,
   });
 
-  const { data: usersData, isLoading: usersLoading, error: usersError } = useQuery({
+  const {
+    data: usersData,
+    isLoading: usersLoading,
+    error: usersError,
+  } = useQuery({
     queryKey: ["users", { page: 1, limit: 100 }],
     queryFn: () => usersService.getAllUsers({ page: 1, limit: 100 }),
     retry: 2,
@@ -65,17 +73,43 @@ export default function AdminCertificateGenerator() {
 
   const courseList: any[] = React.useMemo(() => {
     const raw: any = coursesData as any;
-    if (Array.isArray(raw)) return raw;
-    if (Array.isArray(raw?.data)) return raw.data;
-    if (Array.isArray(raw?.courses)) return raw.courses;
+    
+    console.log("AdminCertificateGenerator - Raw courses data:", raw);
+    
+    // Backend returns: { success: true, data: { courses: [...], total, page, totalPages } }
+    if (raw?.data?.courses && Array.isArray(raw.data.courses)) {
+      console.log("Found courses in raw.data.courses:", raw.data.courses.length);
+      return raw.data.courses;
+    }
+    
+    // Fallback checks for other possible structures
+    if (Array.isArray(raw?.courses)) {
+      console.log("Found courses in raw.courses:", raw.courses.length);
+      return raw.courses;
+    }
+    if (Array.isArray(raw?.data)) {
+      console.log("Found courses in raw.data:", raw.data.length);
+      return raw.data;
+    }
+    if (Array.isArray(raw)) {
+      console.log("Found courses in raw:", raw.length);
+      return raw;
+    }
+    
+    console.log("No courses found, returning empty array");
     return [];
   }, [coursesData]);
 
   const usersList: any[] = React.useMemo(() => {
     const raw: any = usersData as any;
-    if (Array.isArray(raw)) return raw;
-    if (Array.isArray(raw?.data)) return raw.data;
+    
+    // Backend returns: { users: [...], total: number }
     if (Array.isArray(raw?.users)) return raw.users;
+    
+    // Fallback checks for other possible structures
+    if (Array.isArray(raw?.data)) return raw.data;
+    if (Array.isArray(raw)) return raw;
+    
     return [];
   }, [usersData]);
 
@@ -91,11 +125,16 @@ export default function AdminCertificateGenerator() {
   }, [usersList, studentSearch]);
 
   const filteredCourses = React.useMemo(() => {
-    if (!courseSearch) return courseList;
+    if (!courseSearch) {
+      console.log("No search filter, returning all courses:", courseList.length);
+      return courseList;
+    }
     const searchLower = courseSearch.toLowerCase();
-    return courseList.filter((c: any) =>
+    const filtered = courseList.filter((c: any) =>
       c.title?.toLowerCase().includes(searchLower)
     );
+    console.log("Filtered courses:", filtered.length, "from", courseList.length);
+    return filtered;
   }, [courseList, courseSearch]);
 
   const generateMutation = useMutation({
@@ -105,7 +144,6 @@ export default function AdminCertificateGenerator() {
       }
 
       try {
-
         const certificate = await certificatesService.adminGenerateCertificate(
           selectedUserId,
           selectedCourseId,
@@ -235,23 +273,27 @@ export default function AdminCertificateGenerator() {
               Generate and send certificates to students via email
             </p>
           </div>
-          <Button
-            onClick={() => setGenerateDialogOpen(true)}
-            className="bg-white text-primary hover:bg-white/90 font-semibold shadow-md w-full sm:w-auto"
-            size="lg"
-          >
-            <UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-            <span className="text-sm sm:text-base">Single Student</span>
-          </Button>
-          <Button
-            onClick={() => setBulkDialogOpen(true)}
-            variant="outline"
-            className="bg-white/10 text-white border-white/30 hover:bg-white/20 font-semibold w-full sm:w-auto"
-            size="lg"
-          >
-            <Users className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-            <span className="text-sm sm:text-base">Bulk Generate</span>
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <Button
+              onClick={() => setGenerateDialogOpen(true)}
+              className="bg-white text-primary hover:bg-white/90 font-semibold shadow-md w-full sm:w-auto pointer-events-auto"
+              size="lg"
+              type="button"
+            >
+              <UserPlus className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+              <span className="text-sm sm:text-base">Single Student</span>
+            </Button>
+            <Button
+              onClick={() => setBulkDialogOpen(true)}
+              variant="outline"
+              className="bg-white/10 text-white border-white/30 hover:bg-white/20 font-semibold w-full sm:w-auto pointer-events-auto"
+              size="lg"
+              type="button"
+            >
+              <Users className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+              <span className="text-sm sm:text-base">Bulk Generate</span>
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -282,11 +324,15 @@ export default function AdminCertificateGenerator() {
         <div className="bg-card rounded-xl p-4 sm:p-6 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
-              <p className="text-gray-600 text-xs sm:text-sm font-medium">Total Users</p>
+              <p className="text-gray-600 text-xs sm:text-sm font-medium">
+                Total Users
+              </p>
               <p className="text-2xl sm:text-3xl font-bold text-secondary mt-1 sm:mt-2">
                 {usersLoading ? "..." : usersList.length}
               </p>
-              <p className="text-gray-500 text-xs sm:text-sm mt-1">Registered users</p>
+              <p className="text-gray-500 text-xs sm:text-sm mt-1">
+                Registered users
+              </p>
               {usersError && (
                 <p className="text-red-500 text-xs mt-1">Failed to load</p>
               )}
@@ -374,21 +420,35 @@ export default function AdminCertificateGenerator() {
                   className="w-full pl-10 pr-4 py-2 text-xs sm:text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
                 />
               </div>
-              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+              <Select 
+                value={selectedUserId} 
+                onValueChange={(value) => {
+                  console.log("Student selected:", value);
+                  setSelectedUserId(value);
+                }}
+              >
                 <SelectTrigger className="w-full text-xs sm:text-sm">
-                  <SelectValue placeholder="Choose a student..." />
+                  <SelectValue placeholder={
+                    usersLoading 
+                      ? "Loading students..." 
+                      : `Choose a student... (${usersList.length} available)`
+                  } />
                 </SelectTrigger>
-                <SelectContent>
-                  {filteredUsers.length === 0 ? (
+                <SelectContent className="max-h-[300px]">
+                  {usersLoading ? (
                     <div className="p-4 text-center text-xs sm:text-sm text-muted-foreground">
-                      No students found
+                      Loading students...
+                    </div>
+                  ) : filteredUsers.length === 0 ? (
+                    <div className="p-4 text-center text-xs sm:text-sm text-muted-foreground">
+                      {studentSearch ? "No students match your search" : "No students found"}
                     </div>
                   ) : (
                     filteredUsers.map((user: any) => (
                       <SelectItem
                         key={user._id}
                         value={user._id}
-                        className="text-xs sm:text-sm"
+                        className="text-xs sm:text-sm cursor-pointer"
                       >
                         <span className="truncate block max-w-[250px] sm:max-w-full">
                           {user.firstName} {user.lastName} ({user.email})
@@ -417,22 +477,33 @@ export default function AdminCertificateGenerator() {
               </div>
               <Select
                 value={selectedCourseId}
-                onValueChange={setSelectedCourseId}
+                onValueChange={(value) => {
+                  console.log("Course selected:", value);
+                  setSelectedCourseId(value);
+                }}
               >
                 <SelectTrigger className="w-full text-xs sm:text-sm">
-                  <SelectValue placeholder="Choose a course..." />
+                  <SelectValue placeholder={
+                    coursesLoading 
+                      ? "Loading courses..." 
+                      : `Choose a course... (${courseList.length} available)`
+                  } />
                 </SelectTrigger>
-                <SelectContent>
-                  {filteredCourses.length === 0 ? (
+                <SelectContent className="max-h-[300px]">
+                  {coursesLoading ? (
                     <div className="p-4 text-center text-xs sm:text-sm text-muted-foreground">
-                      No courses found
+                      Loading courses...
+                    </div>
+                  ) : filteredCourses.length === 0 ? (
+                    <div className="p-4 text-center text-xs sm:text-sm text-muted-foreground">
+                      {courseSearch ? "No courses match your search" : "No courses found"}
                     </div>
                   ) : (
                     filteredCourses.map((course: any) => (
                       <SelectItem
                         key={course._id}
                         value={course._id}
-                        className="text-xs sm:text-sm"
+                        className="text-xs sm:text-sm cursor-pointer"
                       >
                         <span className="truncate block max-w-[250px] sm:max-w-full">
                           {course.title}
@@ -479,6 +550,7 @@ export default function AdminCertificateGenerator() {
               variant="outline"
               onClick={() => setGenerateDialogOpen(false)}
               className="w-full sm:w-auto text-xs sm:text-sm"
+              type="button"
             >
               Cancel
             </Button>
@@ -490,6 +562,7 @@ export default function AdminCertificateGenerator() {
                 generateMutation.isPending
               }
               className="bg-primary hover:bg-primary/90 text-white w-full sm:w-auto text-xs sm:text-sm"
+              type="button"
             >
               {generateMutation.isPending ? (
                 <>
@@ -521,21 +594,42 @@ export default function AdminCertificateGenerator() {
             {/* Course Selection */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-secondary">
-                Select Course
+                Select Course ({courseList.length} available)
               </label>
               <Select
                 value={selectedCourseId}
-                onValueChange={setSelectedCourseId}
+                onValueChange={(value) => {
+                  console.log("Bulk - Course selected:", value);
+                  setSelectedCourseId(value);
+                }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Choose a course..." />
+                  <SelectValue placeholder={
+                    coursesLoading 
+                      ? "Loading courses..." 
+                      : `Choose a course... (${courseList.length} available)`
+                  } />
                 </SelectTrigger>
-                <SelectContent>
-                  {courseList.map((course: any) => (
-                    <SelectItem key={course._id} value={course._id}>
-                      {course.title}
-                    </SelectItem>
-                  ))}
+                <SelectContent className="max-h-[300px]">
+                  {coursesLoading ? (
+                    <div className="p-4 text-center text-sm text-muted-foreground">
+                      Loading courses...
+                    </div>
+                  ) : courseList.length === 0 ? (
+                    <div className="p-4 text-center text-sm text-muted-foreground">
+                      No courses available
+                    </div>
+                  ) : (
+                    courseList.map((course: any) => (
+                      <SelectItem 
+                        key={course._id} 
+                        value={course._id}
+                        className="cursor-pointer"
+                      >
+                        {course.title}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -546,7 +640,12 @@ export default function AdminCertificateGenerator() {
                 <label className="text-sm font-medium text-secondary">
                   Select Students ({bulkSelectedUserIds.length} selected)
                 </label>
-                <Button variant="outline" size="sm" onClick={selectAllUsers}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={selectAllUsers}
+                  type="button"
+                >
                   {bulkSelectedUserIds.length === usersList.length
                     ? "Deselect All"
                     : "Select All"}
@@ -601,6 +700,7 @@ export default function AdminCertificateGenerator() {
               variant="outline"
               onClick={() => setBulkDialogOpen(false)}
               disabled={bulkGenerateMutation.isPending}
+              type="button"
             >
               Cancel
             </Button>
@@ -611,6 +711,7 @@ export default function AdminCertificateGenerator() {
                 !selectedCourseId ||
                 bulkSelectedUserIds.length === 0
               }
+              type="button"
             >
               {bulkGenerateMutation.isPending ? (
                 <>
