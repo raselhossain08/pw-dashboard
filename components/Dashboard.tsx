@@ -55,6 +55,7 @@ export default function Dashboard() {
   );
   const [isExporting, setIsExporting] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -337,7 +338,10 @@ export default function Dashboard() {
               <Download className="w-4 h-4" />
               <span>Export Report</span>
             </button>
-            <button className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center space-x-2 transition-colors">
+            <button
+              onClick={() => setIsQuickAddOpen(true)}
+              className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg flex items-center space-x-2 transition-colors"
+            >
               <Plus className="w-4 h-4" />
               <span>Quick Add</span>
             </button>
@@ -795,6 +799,90 @@ export default function Dashboard() {
                     <span>Export Report</span>
                   </>
                 )}
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Quick Add Dialog */}
+        <Dialog open={isQuickAddOpen} onOpenChange={setIsQuickAddOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                  <Plus className="w-5 h-5 text-primary" />
+                </div>
+                <DialogTitle>Quick Add</DialogTitle>
+              </div>
+              <DialogDescription>
+                Choose what you&apos;d like to create
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {quickActions.map((action, index) => {
+                  const Icon = action.icon;
+                  const colorClasses = {
+                    primary: "bg-primary/5 hover:bg-primary/10 bg-primary",
+                    accent: "bg-accent/5 hover:bg-accent/10 bg-accent",
+                    blue: "bg-blue-50 hover:bg-blue-100 bg-blue-500",
+                    yellow: "bg-yellow-50 hover:bg-yellow-100 bg-yellow-500",
+                    purple: "bg-purple-50 hover:bg-purple-100 bg-purple-500",
+                    red: "bg-red-50 hover:bg-red-100 bg-red-500",
+                  };
+
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        setIsQuickAddOpen(false);
+                        toast({
+                          message: `Navigating to ${action.label}...`,
+                          type: "info",
+                          duration: 2000,
+                        });
+                        router.push(action.route);
+                      }}
+                      className={`flex items-center space-x-4 p-4 ${
+                        colorClasses[
+                          action.color as keyof typeof colorClasses
+                        ].split(" ")[0]
+                      } ${
+                        colorClasses[
+                          action.color as keyof typeof colorClasses
+                        ].split(" ")[1]
+                      } rounded-lg transition-all transform hover:scale-105`}
+                    >
+                      <div
+                        className={`w-12 h-12 ${
+                          colorClasses[
+                            action.color as keyof typeof colorClasses
+                          ].split(" ")[2]
+                        } rounded-lg flex items-center justify-center shrink-0`}
+                      >
+                        <Icon className="text-white w-6 h-6" />
+                      </div>
+                      <div className="text-left">
+                        <p className="font-medium text-secondary text-sm">
+                          {action.label}
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          {action.description}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <DialogFooter>
+              <button
+                onClick={() => setIsQuickAddOpen(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
               </button>
             </DialogFooter>
           </DialogContent>
