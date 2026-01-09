@@ -193,10 +193,6 @@ export default function CertificateEditor({
         const savedConfig =
           (await certificatesService.getCertificateTemplate()) as CertificateConfig;
         if (savedConfig) {
-          console.log(
-            "Loaded template configuration from database:",
-            savedConfig
-          );
           setNamePosition(savedConfig.namePosition || { x: 50, y: 45 });
           setBarcodePosition(savedConfig.barcodePosition || { x: 15, y: 75 });
           setNameStyle(
@@ -219,7 +215,6 @@ export default function CertificateEditor({
           setLastSavedAt(new Date());
         }
       } catch (error) {
-        console.log("Failed to load from database, using defaults");
       }
     };
     loadConfig();
@@ -284,7 +279,6 @@ export default function CertificateEditor({
         type: "success",
         message: "✓ Template saved to database successfully!",
       });
-      console.log("Template saved:", response);
     } catch (error) {
       console.error("Failed to save to database:", error);
       // Fallback to localStorage

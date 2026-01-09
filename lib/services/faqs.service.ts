@@ -94,12 +94,6 @@ export class FaqsService {
       // Backend has ResponseInterceptor that wraps responses:
       // Outer: { success, message: "Request successful", data: { ... } }
       // Inner (controller): { success, message, data: { actual data } }
-      console.log(`API Success [${method} ${url}]:`, {
-        success: result.success,
-        hasData: !!result.data,
-        innerSuccess: result.data?.success,
-        hasInnerData: !!result.data?.data
-      });
 
       // Unwrap the nested structure and return controller response
       if (result && result.success && result.data) {

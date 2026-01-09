@@ -377,11 +377,7 @@ export default function Courses() {
   };
 
   const handleReorder = async (reorderedCourses: Course[]) => {
-    // Here you could implement API call to save the new order
-    console.log(
-      "Courses reordered:",
-      reorderedCourses.map((c) => c.id || c._id)
-    );
+
     push({ type: "success", message: "Course order updated" });
   };
 

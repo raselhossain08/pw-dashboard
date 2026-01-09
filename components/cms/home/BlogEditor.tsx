@@ -146,12 +146,6 @@ export function BlogEditor() {
 
   useEffect(() => {
     if (blog) {
-      console.log("🔄 Blog data received from API:", {
-        title: blog.title,
-        blogsCount: blog.blogs?.length,
-        blogs: blog.blogs,
-      });
-
       // Normalize blog data to ensure publishedAt is always an ISO string
       const normalizedBlogs = (blog.blogs || []).map((post) => ({
         ...post,
@@ -165,7 +159,6 @@ export function BlogEditor() {
             : new Date().toISOString(),
       }));
 
-      console.log("✨ Normalized blogs count:", normalizedBlogs.length);
 
       setFormData({
         title: blog.title || "",
@@ -237,21 +230,7 @@ export function BlogEditor() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    console.log("🚀 Blog form submission started");
-    console.log("📝 Form data:", {
-      title: formData.title,
-      subtitle: formData.subtitle,
-      blogsCount: formData.blogs?.length,
-    });
-    console.log("📋 Full formData.blogs array:", formData.blogs);
-    console.log("📋 Individual blogs:");
     formData.blogs?.forEach((blog, idx) => {
-      console.log(`  Blog ${idx}:`, {
-        title: blog.title,
-        content: blog.content?.substring(0, 50),
-        hasTitle: !!blog.title?.trim(),
-        hasContent: !!blog.content?.trim(),
-      });
     });
 
     try {
@@ -271,9 +250,6 @@ export function BlogEditor() {
       const validBlogs = (formData.blogs || []).filter(
         (blog) => blog.title?.trim() || blog.content?.trim()
       );
-
-      console.log("✅ Valid blogs count:", validBlogs.length);
-      console.log("✅ Valid blogs:", validBlogs);
 
       // Add blogs as proper JSON string
       if (validBlogs.length > 0) {
@@ -328,38 +304,28 @@ export function BlogEditor() {
 
       // Add image files
       const imageFileCount = Object.keys(imageFiles).length;
-      console.log("🖼️ Image files to upload:", imageFileCount);
       Object.entries(imageFiles).forEach(([index, file]) => {
-        console.log(`  - image_${index}: ${file.name}`);
         submitFormData.append(`image_${index}`, file);
       });
 
       // Add avatar files
       const avatarFileCount = Object.keys(avatarFiles).length;
-      console.log("👤 Avatar files to upload:", avatarFileCount);
       Object.entries(avatarFiles).forEach(([index, file]) => {
-        console.log(`  - avatar_${index}: ${file.name}`);
         submitFormData.append(`avatar_${index}`, file);
       });
 
-      console.log("📤 Sending update request to backend...");
       const result = await updateBlogWithMedia(submitFormData);
 
       if (result) {
-        console.log("✅ Blog update successful");
         setImageFiles({});
         setImagePreviews({});
         setAvatarFiles({});
         setAvatarPreviews({});
         await refreshBlog();
       } else {
-        console.error("❌ Blog update returned null");
       }
     } catch (error) {
-      console.error("❌ Failed to update blog:", error);
       if (error instanceof Error) {
-        console.error("Error message:", error.message);
-        console.error("Error stack:", error.stack);
       }
     }
   };

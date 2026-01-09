@@ -17,6 +17,14 @@ export interface Course {
         avatar?: string;
         name?: string;
     } | string;
+    instructors?: Array<{
+        _id: string;
+        firstName?: string;
+        lastName?: string;
+        email?: string;
+        avatar?: string;
+        name?: string;
+    } | string>;
     categories?: string[];
     level: "beginner" | "intermediate" | "advanced" | "expert";
     type: "theoretical" | "practical" | "simulator" | "combined";
@@ -79,6 +87,7 @@ export interface CreateCourseDto {
     learningObjectives?: string[];
     outcomes?: string[]; // What students will get
     instructor?: string;
+    instructors?: string[]; // Multiple instructors
     videoUrl?: string;
     language?: string;
     certificateAvailable?: boolean;

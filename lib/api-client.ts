@@ -93,6 +93,7 @@ async function http<T>(method: string, url: string, body?: unknown, options: Req
   let headers = buildHeaders(options, isFormData);
   headers = await withAuthHeaders(headers);
   const fullUrl = withParams(url, options.params);
+
   const res = await fetch(`${BASE_URL}${fullUrl}`, {
     method,
     headers,
@@ -110,6 +111,7 @@ async function http<T>(method: string, url: string, body?: unknown, options: Req
   }
 
   const json = await res.json().catch(() => ({}));
+
   if (!res.ok) throw new Error(json?.error || json?.message || `HTTP ${res.status}`);
   if (options.onUploadProgress) options.onUploadProgress({ loaded: 1, total: 1 });
   const payload = (json && typeof json === 'object' && 'data' in json) ? (json.data as T) : (json as T);

@@ -279,7 +279,6 @@ export default function CertificateEditorCanva({
           elements: JSON.parse(JSON.stringify(elements)),
         }
       );
-      console.log("Auto-saved template");
     } catch (error) {
       console.error("Auto-save failed:", error);
     }

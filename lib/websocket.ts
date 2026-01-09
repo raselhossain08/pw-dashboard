@@ -36,18 +36,16 @@ class WebSocketService {
   connect(token?: string): Promise<void> {
     return new Promise((resolve, reject) => {
       if (this.socket?.connected) {
-        console.log('[WebSocket] Already connected');
         resolve();
         return;
       }
 
       if (this.isConnecting) {
-        console.log('[WebSocket] Connection already in progress');
         return;
       }
 
       this.isConnecting = true;
-      console.log('[WebSocket] Connecting to:', this.WS_URL);
+     
 
       try {
         this.socket = io(this.WS_URL, {

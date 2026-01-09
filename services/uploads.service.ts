@@ -138,8 +138,6 @@ class UploadsService {
     } = {}): Promise<FileListResponse> {
         try {
             const response = await apiClient.get<any>("/uploads", { params });
-            console.log('🔧 Raw API Response:', response);
-            console.log('🔧 response.data:', response.data);
 
             // Handle both response formats
             let result: FileListResponse;
@@ -153,8 +151,6 @@ class UploadsService {
                 result = { files: [], total: 0, page: 1, pages: 0 };
             }
 
-            console.log('🔧 Final result:', result);
-            console.log('🔧 Files count:', result.files?.length);
             return result;
         } catch (error) {
             console.error('❌ Error fetching user files:', error);
@@ -165,9 +161,7 @@ class UploadsService {
     async getStorageStats(): Promise<StorageStats> {
         try {
             const response = await apiClient.get<StorageStats>("/uploads/storage-stats");
-            console.log('📊 Raw API Response:', response.data);
             const result = response.data || { byType: [], total: { _id: null, totalFiles: 0, totalSize: 0 } };
-            console.log('📊 Final result:', result);
             return result;
         } catch (error) {
             console.error('❌ Error fetching storage stats:', error);

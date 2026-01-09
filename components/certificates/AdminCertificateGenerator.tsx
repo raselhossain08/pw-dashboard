@@ -105,18 +105,12 @@ export default function AdminCertificateGenerator() {
       }
 
       try {
-        // Generate certificate in backend
-        console.log(
-          "Generating certificate for:",
-          selectedUserId,
-          selectedCourseId
-        );
+
         const certificate = await certificatesService.adminGenerateCertificate(
           selectedUserId,
           selectedCourseId,
           sendEmail
         );
-        console.log("Certificate generated:", certificate);
 
         // Get user details for PDF generation
         const user = usersList.find((u) => u._id === selectedUserId);
@@ -124,19 +118,8 @@ export default function AdminCertificateGenerator() {
           ? `${user.firstName || ""} ${user.lastName || ""}`.trim()
           : "Student";
 
-        console.log("Fetching certificate template...");
         // Generate and download PDF with saved template
         const config = await certificatesService.getCertificateTemplate();
-        console.log("Template fetched:", config);
-
-        console.log("Generating PDF for:", userName, certificate.certificateId);
-        await downloadCertificate({
-          studentName: userName,
-          certificateId: certificate.certificateId,
-          config: config as any,
-        });
-        console.log("PDF generated successfully");
-
         return certificate;
       } catch (error) {
         console.error("Error in generateMutation:", error);

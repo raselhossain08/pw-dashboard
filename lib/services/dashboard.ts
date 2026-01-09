@@ -12,32 +12,6 @@ export async function getDashboardData(): Promise<DashboardData> {
       apiFetch<any>("/enrollments/admin/all?limit=1000"),
     ])
 
-    // Debug logging - Log all responses
-    console.log("=== DASHBOARD API RESPONSES ===")
-    console.log("Admin Stats Response:", {
-      success: adminStatsRes.success,
-      error: adminStatsRes.error,
-      hasData: !!adminStatsRes.data,
-      data: adminStatsRes.data,
-    })
-    console.log("Analytics Response:", {
-      success: analyticsRes.success,
-      error: analyticsRes.error,
-      hasData: !!analyticsRes.data,
-      data: analyticsRes.data,
-    })
-    console.log("Products Response:", {
-      success: productsRes.success,
-      error: productsRes.error,
-    })
-    console.log("Aircraft Response:", {
-      success: aircraftRes.success,
-      error: aircraftRes.error,
-    })
-    console.log("Enrollments Response:", {
-      success: enrollmentsRes.success,
-      error: enrollmentsRes.error,
-    })
 
     if (!adminStatsRes.success || !analyticsRes.success) {
       console.error("Dashboard API Error:", {
@@ -50,12 +24,6 @@ export async function getDashboardData(): Promise<DashboardData> {
     const adminData = adminStatsRes.data
     const analyticsData = analyticsRes.data
 
-    // Debug logging - Chart data structure
-    console.log("=== CHART DATA STRUCTURE ===")
-    console.log("Charts object:", analyticsData?.charts)
-    console.log("Enrollments chart:", analyticsData?.charts?.enrollments)
-    console.log("Revenue chart:", analyticsData?.charts?.revenue)
-    console.log("Traffic chart:", analyticsData?.charts?.traffic)
 
     // Calculate shop revenue from products
     const products = productsRes.success && productsRes.data?.products ? productsRes.data.products : []
@@ -157,11 +125,6 @@ export async function getDashboardData(): Promise<DashboardData> {
       ? enrollmentsRes.data.enrollments
       : []
 
-    console.log("Enrollments data for progress:", {
-      success: enrollmentsRes.success,
-      count: enrollmentsData.length,
-      sample: enrollmentsData.slice(0, 3),
-    })
 
     const totalEnrollments = enrollmentsData.length
     const completed = enrollmentsData.filter((e: any) =>
@@ -182,8 +145,6 @@ export async function getDashboardData(): Promise<DashboardData> {
     // Traffic analytics - backend returns time-series page views
     // Convert to traffic source breakdown for better visualization
     const trafficChart = analyticsData?.charts?.traffic || []
-
-    console.log("Raw traffic data:", trafficChart)
 
     // Calculate simple distribution from time-series data
     // Use last 7 days for source distribution estimation
@@ -209,13 +170,6 @@ export async function getDashboardData(): Promise<DashboardData> {
           { name: "Signups", values: [320, 140, 120, 260] },
         ],
     }
-
-    console.log("Processed traffic data:", {
-      hasData: trafficChart.length > 0,
-      totalViews,
-      categories: traffic.categories,
-      series: traffic.series,
-    })
 
     return {
       stats,

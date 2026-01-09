@@ -52,8 +52,9 @@ export default function CreateCourse() {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [mediaLibraryOpen, setMediaLibraryOpen] = React.useState(false);
   const [instructors, setInstructors] = React.useState<any[]>([]);
-  const [selectedInstructor, setSelectedInstructor] =
-    React.useState<string>("");
+  const [selectedInstructors, setSelectedInstructors] = React.useState<
+    string[]
+  >([]);
   const [level, setLevel] = React.useState<string>("beginner");
   const [type, setType] = React.useState<string>("theoretical");
   const [maxStudents, setMaxStudents] = React.useState<string>("20");
@@ -68,6 +69,13 @@ export default function CreateCourse() {
   const [excerpt, setExcerpt] = React.useState("");
   const [language, setLanguage] = React.useState("en");
   const [moneyBackGuarantee, setMoneyBackGuarantee] = React.useState("30");
+  const [title, setTitle] = React.useState("");
+  const [price, setPrice] = React.useState("99.99");
+  const [originalPrice, setOriginalPrice] = React.useState("");
+  const [duration, setDuration] = React.useState("10");
+  const [isFree, setIsFree] = React.useState(false);
+  const [prerequisites, setPrerequisites] = React.useState("");
+  const [learningObjectives, setLearningObjectives] = React.useState("");
 
   React.useEffect(() => {
     const fetchInstructors = async () => {
@@ -85,10 +93,8 @@ export default function CreateCourse() {
           setInstructors(data.data);
         } else {
           setInstructors([]);
-          console.warn("Instructors data format unexpected:", data);
         }
       } catch (error) {
-        console.error("Failed to fetch instructors:", error);
         setInstructors([]);
         push({ type: "error", message: "Failed to load instructors" });
       }
@@ -214,41 +220,66 @@ export default function CreateCourse() {
         <form
           onSubmit={async (e) => {
             e.preventDefault();
-            const fd = new FormData(e.currentTarget as HTMLFormElement);
-            const title = String(fd.get("title") || "").trim();
-            // Use state values for description and content (from RichTextEditor)
+            setIsSaving(true);
+
+            // Use state values directly instead of FormData
+            const titleValue = title.trim();
             const descriptionValue = description.trim();
             const contentValue = content.trim();
-            const level = String(fd.get("level") || "beginner");
-            const type = String(fd.get("type") || "theoretical");
-            const isFree = fd.get("isFree") === "on";
-            const price = isFree ? 0 : Number(fd.get("price") || 0);
-            const originalPriceRaw = fd.get("originalPrice");
-            const originalPrice =
-              originalPriceRaw && Number(originalPriceRaw) > 0
-                ? Number(originalPriceRaw)
+            const levelValue = level;
+            const typeValue = type;
+            const isFreeValue = isFree;
+            const priceValue = isFreeValue ? 0 : Number(price) || 0;
+            const originalPriceValue =
+              originalPrice && Number(originalPrice) > 0
+                ? Number(originalPrice)
                 : undefined;
-            const duration = Number(fd.get("duration") || 1);
-            const maxStudents = Number(fd.get("maxStudents") || 1);
-            const instructor = String(fd.get("instructor") || "").trim();
-            const prerequisitesInput = String(fd.get("prerequisites") || "");
-            const learningObjectivesInput = String(
-              fd.get("learningObjectives") || ""
-            );
+            const durationValue = Number(duration) || 1;
+            const maxStudentsValue =
+              maxStudents === "unlimited" ? 999999 : Number(maxStudents) || 1;
+            const instructorsList = selectedInstructors.filter(Boolean);
 
             const tags = selectedTags.length > 0 ? selectedTags : undefined;
-            const prerequisites = prerequisitesInput
-              ? prerequisitesInput
+            const prerequisitesArray = prerequisites
+              ? prerequisites
                   .split(",")
                   .map((t) => t.trim())
                   .filter(Boolean)
               : undefined;
-            const learningObjectives = learningObjectivesInput
-              ? learningObjectivesInput
+            const learningObjectivesArray = learningObjectives
+              ? learningObjectives
                   .split(",")
                   .map((t) => t.trim())
                   .filter(Boolean)
               : undefined;
+
+            // Validate required fields
+            if (!title) {
+              push({ type: "error", message: "Course title is required" });
+              setIsSaving(false);
+              setActiveTab("basic");
+              return;
+            }
+
+            if (!descriptionValue) {
+              push({
+                type: "error",
+                message: "Course description is required",
+              });
+              setIsSaving(false);
+              setActiveTab("basic");
+              return;
+            }
+
+            if (instructorsList.length === 0) {
+              push({
+                type: "error",
+                message: "At least one instructor must be selected",
+              });
+              setIsSaving(false);
+              setActiveTab("basic");
+              return;
+            }
 
             const slug = title
               .toLowerCase()
@@ -262,12 +293,6 @@ export default function CreateCourse() {
               if (thumbnailFile) {
                 setIsUploading(true);
                 try {
-                  console.log(
-                    "Uploading thumbnail:",
-                    thumbnailFile.name,
-                    thumbnailFile.size,
-                    "bytes"
-                  );
                   const uploadResult = await uploadService.uploadFile(
                     thumbnailFile,
                     {
@@ -279,42 +304,48 @@ export default function CreateCourse() {
                       },
                     }
                   );
-                  console.log("Upload successful:", uploadResult.url);
                   thumbnailUrl = uploadResult.url;
                   setIsUploading(false);
                 } catch (uploadError) {
                   setIsUploading(false);
-                  console.error("Thumbnail upload failed:", uploadError);
                   push({
                     type: "error",
                     message:
                       "Failed to upload thumbnail. Saving course without image.",
                   });
-                  // Continue with course creation even if upload fails
                 }
+              } else if (
+                thumbnailPreview &&
+                !thumbnailPreview.startsWith("data:")
+              ) {
+                // Using URL from media library
+                thumbnailUrl = thumbnailPreview;
               }
 
               const createPayload: any = {
-                title,
+                title: titleValue,
                 slug,
                 description: descriptionValue,
                 content: contentValue || undefined,
-                excerpt: excerpt || undefined,
-                level: level as any,
-                type: type as any,
-                price,
-                originalPrice,
-                isFree,
-                duration: Math.max(duration, 1),
-                durationHours: Math.max(duration, 1),
-                maxStudents,
-                isPublished: true,
+                excerpt: excerpt?.trim() || undefined,
+                level: levelValue as any,
+                type: typeValue as any,
+                price: priceValue,
+                originalPrice: originalPriceValue,
+                isFree: isFreeValue,
+                duration: Math.max(durationValue, 1),
+                durationHours: Math.max(durationValue, 1),
+                maxStudents: maxStudentsValue,
+                status: "published", // Always published
+                isPublished: true, // Always published
                 tags,
                 categories: selectedCats.length ? selectedCats : undefined,
-                prerequisites,
-                learningObjectives,
-                instructor: instructor || undefined,
-                module: moduleId || undefined, // Auto-link to module if moduleId is provided
+                prerequisites: prerequisitesArray,
+                learningObjectives: learningObjectivesArray,
+                instructors:
+                  instructorsList.length > 0 ? instructorsList : undefined,
+                instructor: instructorsList[0] || undefined, // Primary instructor for backward compatibility
+                module: moduleId || undefined,
                 aircraftTypes: aircraftTypes.length ? aircraftTypes : undefined,
                 isFeatured,
                 providesCertificate,
@@ -327,20 +358,25 @@ export default function CreateCourse() {
                 createPayload.thumbnail = thumbnailUrl;
               }
 
-              console.log("Create payload:", createPayload);
               await coursesService.createCourse(createPayload);
 
-              push({ type: "success", message: "Course created successfully" });
+              push({
+                type: "success",
+                message: "Course created successfully!",
+              });
               qc.invalidateQueries({ queryKey: ["courses"] });
-              qc.invalidateQueries({ queryKey: ["modules"] }); // Refresh modules to show the new course
+              qc.invalidateQueries({ queryKey: ["modules"] });
 
-              // If created from module context, redirect back to modules page
-              if (moduleId) {
-                router.push("/modules");
-              } else {
-                router.push("/courses");
-              }
+              // Small delay to show success message before redirect
+              setTimeout(() => {
+                if (moduleId) {
+                  router.push("/modules");
+                } else {
+                  router.push("/courses");
+                }
+              }, 800);
             } catch (err) {
+              setIsSaving(false);
               setIsUploading(false);
               const msg =
                 err instanceof Error ? err.message : "Failed to create course";
@@ -390,6 +426,8 @@ export default function CreateCourse() {
                     </label>
                     <input
                       name="title"
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
                       placeholder="e.g., Citation Jet Pro Line 21 Training"
                       className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                       required
@@ -457,46 +495,185 @@ export default function CreateCourse() {
 
                   <div>
                     <label className="text-sm font-medium text-secondary block mb-4">
-                      Brief Description
+                      Brief Description *
+                      {description && (
+                        <span className="ml-2 text-xs text-green-600 font-normal">
+                          ✓ {description.length} characters
+                        </span>
+                      )}
                     </label>
                     <RichTextEditor
                       content={description}
                       onChange={setDescription}
                       placeholder="Brief course description that will appear in course listings"
                     />
+                    <p className="text-xs text-gray-500 mt-1.5">
+                      This description appears in course listings and search
+                      results
+                    </p>
                   </div>
+                </div>
 
+                <div className="space-y-6">
                   <div>
-                    <label className="text-sm font-medium text-secondary block mb-2">
-                      Instructor *
-                    </label>
+                    <div className="flex items-center justify-between mb-3">
+                      <label className="text-sm font-medium text-secondary">
+                        Instructors *
+                        {selectedInstructors.length > 0 && (
+                          <span className="ml-2 text-xs text-green-600 font-normal">
+                            ✓ {selectedInstructors.length} selected
+                          </span>
+                        )}
+                      </label>
+                      <Badge variant="outline" className="bg-purple-50">
+                        {selectedInstructors.length} instructor
+                        {selectedInstructors.length !== 1 ? "s" : ""}
+                      </Badge>
+                    </div>
+
                     <Select
-                      value={selectedInstructor}
-                      onValueChange={setSelectedInstructor}
+                      value=""
+                      onValueChange={(value) => {
+                        if (value && !selectedInstructors.includes(value)) {
+                          setSelectedInstructors((prev) => [...prev, value]);
+                        }
+                      }}
                     >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select an instructor" />
+                      <SelectTrigger
+                        className={`w-full ${
+                          selectedInstructors.length === 0
+                            ? "border-red-300"
+                            : ""
+                        }`}
+                      >
+                        <SelectValue placeholder="Select instructors for this course" />
                       </SelectTrigger>
                       <SelectContent>
-                        {instructors.map((instructor) => (
-                          <SelectItem
-                            key={instructor._id}
-                            value={instructor._id}
-                          >
-                            {instructor.firstName} {instructor.lastName} (
-                            {instructor.email})
-                          </SelectItem>
-                        ))}
+                        {instructors.length > 0 ? (
+                          instructors
+                            .filter(
+                              (inst) => !selectedInstructors.includes(inst._id)
+                            )
+                            .map((instructor) => (
+                              <SelectItem
+                                key={instructor._id}
+                                value={instructor._id}
+                              >
+                                {instructor.firstName} {instructor.lastName} (
+                                {instructor.email})
+                              </SelectItem>
+                            ))
+                        ) : (
+                          <div className="px-2 py-4 text-sm text-gray-500 text-center">
+                            No instructors available
+                          </div>
+                        )}
                       </SelectContent>
                     </Select>
-                    <input
-                      type="hidden"
-                      name="instructor"
-                      value={selectedInstructor}
-                    />
+
                     <p className="text-xs text-gray-500 mt-1.5">
-                      Select the instructor who will teach this course
+                      Select one or more instructors who will teach this course
                     </p>
+
+                    {/* Selected Instructors Display */}
+                    {selectedInstructors.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        <p className="text-xs font-medium text-gray-700">
+                          Selected Instructors:
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedInstructors.map((instructorId, index) => {
+                            const instructor = instructors.find(
+                              (i) => i._id === instructorId
+                            );
+                            if (!instructor) return null;
+                            return (
+                              <Badge
+                                key={instructorId}
+                                className="bg-purple-600 text-white shadow-sm pr-1"
+                              >
+                                {index === 0 && (
+                                  <Star className="w-3 h-3 mr-1" />
+                                )}
+                                {instructor.firstName} {instructor.lastName}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setSelectedInstructors((prev) =>
+                                      prev.filter((id) => id !== instructorId)
+                                    )
+                                  }
+                                  className="ml-2 hover:bg-white/30 rounded-full p-0.5 transition-all"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                        <p className="text-xs text-gray-500 italic">
+                          <Star className="w-3 h-3 inline mr-1" />
+                          First instructor will be set as primary instructor
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-secondary block mb-2">
+                        Duration (hours) *
+                      </label>
+                      <input
+                        name="duration"
+                        type="number"
+                        min={1}
+                        step="0.5"
+                        value={duration}
+                        onChange={(e) => setDuration(e.target.value)}
+                        placeholder="10"
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-secondary block mb-2">
+                        Max Students *
+                      </label>
+                      <Select
+                        value={maxStudents}
+                        onValueChange={setMaxStudents}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select max students" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="unlimited">
+                            ∞ Unlimited Students
+                          </SelectItem>
+                          <SelectItem value="10">10 Students</SelectItem>
+                          <SelectItem value="20">20 Students</SelectItem>
+                          <SelectItem value="30">30 Students</SelectItem>
+                          <SelectItem value="50">50 Students</SelectItem>
+                          <SelectItem value="100">100 Students</SelectItem>
+                          <SelectItem value="200">200 Students</SelectItem>
+                          <SelectItem value="500">500 Students</SelectItem>
+                          <SelectItem value="1000">1000 Students</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-gray-500 mt-1.5">
+                        {maxStudents === "unlimited"
+                          ? "No limit on student enrollments"
+                          : `Maximum ${maxStudents} students can enroll`}
+                      </p>
+                      <input
+                        type="hidden"
+                        name="maxStudents"
+                        value={
+                          maxStudents === "unlimited" ? "999999" : maxStudents
+                        }
+                      />
+                    </div>
                   </div>
 
                   <div>
@@ -532,7 +709,7 @@ export default function CreateCourse() {
             <TabsContent value="pricing" className="p-8 space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="space-y-6">
-                  <div className="bg-linear-to-br from-primary/5 to-primary/10 rounded-lg p-6 border border-primary/20">
+                  <div className="bg-gradient-to-br from-primary/5 to-primary/10 rounded-lg p-6 border border-primary/20">
                     <h3 className="text-lg font-semibold text-secondary mb-4">
                       Pricing Information
                     </h3>
@@ -542,16 +719,12 @@ export default function CreateCourse() {
                           <input
                             type="checkbox"
                             name="isFree"
+                            checked={isFree}
                             className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
                             onChange={(e) => {
-                              const priceInput = document.querySelector(
-                                'input[name="price"]'
-                              ) as HTMLInputElement;
+                              setIsFree(e.target.checked);
                               if (e.target.checked) {
-                                if (priceInput) priceInput.value = "0";
-                                priceInput?.setAttribute("disabled", "true");
-                              } else {
-                                priceInput?.removeAttribute("disabled");
+                                setPrice("0");
                               }
                             }}
                           />
@@ -572,8 +745,12 @@ export default function CreateCourse() {
                           name="price"
                           type="number"
                           step="0.01"
+                          min="0"
+                          value={price}
+                          onChange={(e) => setPrice(e.target.value)}
                           placeholder="99.99"
                           className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                          disabled={isFree}
                           required
                         />
                       </div>
@@ -585,6 +762,9 @@ export default function CreateCourse() {
                           name="originalPrice"
                           type="number"
                           step="0.01"
+                          min="0"
+                          value={originalPrice}
+                          onChange={(e) => setOriginalPrice(e.target.value)}
                           placeholder="149.99"
                           className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                         />
@@ -598,65 +778,12 @@ export default function CreateCourse() {
                 </div>
 
                 <div className="space-y-6">
-                  <div className=" rounded-lg p-6 border border-blue-200">
+                  <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
                     <h3 className="text-lg font-semibold text-secondary mb-4">
                       Course Settings
                     </h3>
                     <div className="space-y-4">
-                      <div>
-                        <label className="text-sm font-medium text-secondary block mb-2">
-                          Duration (hours) *
-                        </label>
-                        <input
-                          name="duration"
-                          type="number"
-                          min={1}
-                          step="0.5"
-                          placeholder="10"
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                          required
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-secondary block mb-2">
-                          Max Students *
-                        </label>
-                        <Select
-                          value={maxStudents}
-                          onValueChange={setMaxStudents}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select max students" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="unlimited">
-                              ∞ Unlimited Students
-                            </SelectItem>
-                            <SelectItem value="10">10 Students</SelectItem>
-                            <SelectItem value="20">20 Students</SelectItem>
-                            <SelectItem value="30">30 Students</SelectItem>
-                            <SelectItem value="50">50 Students</SelectItem>
-                            <SelectItem value="100">100 Students</SelectItem>
-                            <SelectItem value="200">200 Students</SelectItem>
-                            <SelectItem value="500">500 Students</SelectItem>
-                            <SelectItem value="1000">1000 Students</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-gray-500 mt-1.5">
-                          {maxStudents === "unlimited"
-                            ? "No limit on student enrollments"
-                            : `Maximum ${maxStudents} students can enroll`}
-                        </p>
-                        <input
-                          type="hidden"
-                          name="maxStudents"
-                          value={
-                            maxStudents === "unlimited" ? "999999" : maxStudents
-                          }
-                        />
-                      </div>
-
-                      <div className="border-t pt-4 space-y-4">
+                      <div className="border-t pt-4 space-y-4 mt-4">
                         <h4 className="text-sm font-semibold text-secondary mb-3">
                           Additional Options
                         </h4>
@@ -758,14 +885,19 @@ export default function CreateCourse() {
             <TabsContent value="media" className="p-8 space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div>
-                  <label className="text-sm font-medium text-secondary block mb-2">
+                  <label className="text-sm font-medium text-secondary block mb-3">
                     Course Thumbnail
+                    {thumbnailPreview && (
+                      <span className="ml-2 text-xs text-green-600 font-normal">
+                        ✓ Image loaded
+                      </span>
+                    )}
                   </label>
                   <div
-                    className={`border-2 border-dashed rounded-lg p-4 transition-colors ${
+                    className={`border-2 border-dashed rounded-xl p-6 transition-all ${
                       isDragging
-                        ? "border-primary bg-primary/5"
-                        : "border-gray-300"
+                        ? "border-primary bg-primary/5 scale-102"
+                        : "border-gray-300 hover:border-primary/50"
                     }`}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
@@ -773,32 +905,47 @@ export default function CreateCourse() {
                   >
                     {thumbnailPreview ? (
                       <div className="relative">
-                        <div className="relative w-full h-64 rounded-lg overflow-hidden">
+                        <div className="relative w-full h-64 rounded-lg overflow-hidden shadow-lg">
                           <Image
                             src={thumbnailPreview}
                             alt="Thumbnail preview"
                             fill
                             className="object-cover"
+                            unoptimized={thumbnailPreview.startsWith("data:")}
                           />
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={clearThumbnail}
-                          className="absolute top-2 right-2 bg-white/90 hover:bg-white"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
+                        <div className="absolute top-2 right-2 flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="bg-white/90 hover:bg-white shadow-lg"
+                          >
+                            <Upload className="w-4 h-4 mr-2" />
+                            Change
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={clearThumbnail}
+                            className="bg-white/90 hover:bg-white shadow-lg"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
                         {isUploading && (
-                          <div className="mt-2">
-                            <div className="flex justify-between text-sm text-gray-600 mb-1">
-                              <span>Uploading...</span>
-                              <span>{uploadProgress}%</span>
+                          <div className="mt-4">
+                            <div className="flex justify-between text-sm text-gray-600 mb-2">
+                              <span className="font-medium">Uploading...</span>
+                              <span className="font-semibold">
+                                {uploadProgress}%
+                              </span>
                             </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div className="w-full bg-gray-200 rounded-full h-3">
                               <div
-                                className="bg-primary h-2 rounded-full transition-all duration-300"
+                                className="bg-primary h-3 rounded-full transition-all duration-300"
                                 style={{ width: `${uploadProgress}%` }}
                               />
                             </div>
@@ -806,11 +953,11 @@ export default function CreateCourse() {
                         )}
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center justify-center py-8">
-                        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
-                          <ImageIcon className="w-8 h-8 text-gray-400" />
+                      <div className="flex flex-col items-center justify-center py-12">
+                        <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+                          <Upload className="w-10 h-10 text-primary" />
                         </div>
-                        <p className="text-sm text-gray-600 mb-4">
+                        <p className="text-sm font-medium text-gray-700 mb-4">
                           Upload or select thumbnail image
                         </p>
                         <div className="flex gap-2">
@@ -951,23 +1098,28 @@ export default function CreateCourse() {
                   </div>
 
                   {/* SEO Tags */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
                       <label className="text-sm font-medium text-secondary">
                         SEO Tags
+                        {selectedTags.length > 0 && (
+                          <span className="ml-2 text-xs text-green-600 font-normal">
+                            ✓ {selectedTags.length} tags added
+                          </span>
+                        )}
                       </label>
-                      <span className="text-xs text-gray-500">
+                      <Badge variant="outline" className="bg-blue-50">
                         {selectedTags.length} tags
-                      </span>
+                      </Badge>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 mb-3">
                       <input
                         type="text"
                         value={customTag}
                         onChange={(e) => setCustomTag(e.target.value)}
                         placeholder="Add SEO tag"
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 text-sm"
+                        className="flex-1 px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-200 text-sm"
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
@@ -988,14 +1140,14 @@ export default function CreateCourse() {
                             setCustomTag("");
                           }
                         }}
-                        className="bg-accent hover:bg-accent/90 text-white"
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
                         disabled={!customTag.trim()}
                       >
                         <Plus className="w-4 h-4" />
                       </Button>
                     </div>
 
-                    <div className="flex flex-wrap gap-2 p-3 bg-blue-50 rounded-lg">
+                    <div className="flex flex-wrap gap-2 p-4 bg-blue-50 rounded-lg border border-blue-200">
                       {[
                         "flight training",
                         "aviation courses",
@@ -1008,8 +1160,10 @@ export default function CreateCourse() {
                           <Badge
                             key={tag}
                             variant={isSelected ? "default" : "outline"}
-                            className={`cursor-pointer ${
-                              isSelected ? "bg-blue-600 text-white" : ""
+                            className={`cursor-pointer transition-all ${
+                              isSelected
+                                ? "bg-blue-600 text-white shadow-md"
+                                : ""
                             }`}
                             onClick={() => {
                               setSelectedTags((prev) =>
@@ -1029,9 +1183,12 @@ export default function CreateCourse() {
                     </div>
 
                     {selectedTags.length > 0 && (
-                      <div className="flex flex-wrap gap-2 p-3 bg-blue-50/50 rounded-lg">
+                      <div className="flex flex-wrap gap-2 p-4 bg-blue-50/50 rounded-lg border border-blue-200/50 mt-3">
                         {selectedTags.map((tag) => (
-                          <Badge key={tag} className="bg-blue-600 text-white">
+                          <Badge
+                            key={tag}
+                            className="bg-blue-600 text-white shadow-sm"
+                          >
                             {tag}
                             <button
                               type="button"
@@ -1040,7 +1197,7 @@ export default function CreateCourse() {
                                   prev.filter((t) => t !== tag)
                                 )
                               }
-                              className="ml-2 hover:bg-white/30 rounded-full"
+                              className="ml-2 hover:bg-white/30 rounded-full p-0.5 transition-all"
                             >
                               <X className="w-3 h-3" />
                             </button>
@@ -1055,44 +1212,62 @@ export default function CreateCourse() {
 
             {/* Content & Details Tab */}
             <TabsContent value="content" className="p-8 space-y-6">
-              <div>
-                <label className="text-sm font-medium text-secondary block mb-4">
-                  Detailed Content
-                </label>
-                <RichTextEditor
-                  content={content}
-                  onChange={setContent}
-                  placeholder="Detailed course content and curriculum description"
-                />
-              </div>
+              <div className="space-y-6">
+                <div>
+                  <label className="text-sm font-medium text-secondary block mb-4">
+                    Detailed Content
+                    {content && (
+                      <span className="ml-2 text-xs text-green-600 font-normal">
+                        ✓ {content.length} characters
+                      </span>
+                    )}
+                  </label>
+                  <RichTextEditor
+                    content={content}
+                    onChange={setContent}
+                    placeholder="Detailed course content and curriculum description..."
+                  />
+                  <p className="text-xs text-gray-500 mt-2">
+                    Provide comprehensive information about the course
+                    curriculum, modules, and learning materials
+                  </p>
+                </div>
 
-              <div>
-                <label className="text-sm font-medium text-secondary block mb-2">
-                  Prerequisites
-                </label>
-                <input
-                  name="prerequisites"
-                  placeholder="Comma-separated (e.g., Private Pilot License, Medical Certificate)"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                />
-                <p className="text-xs text-gray-500 mt-1.5">
-                  Separate each prerequisite with a comma
-                </p>
-              </div>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div>
+                    <label className="text-sm font-medium text-secondary block mb-2">
+                      Prerequisites
+                    </label>
+                    <textarea
+                      name="prerequisites"
+                      value={prerequisites}
+                      onChange={(e) => setPrerequisites(e.target.value)}
+                      rows={4}
+                      placeholder="Comma-separated (e.g., Private Pilot License, Medical Certificate, Minimum 200 flight hours)"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
+                    />
+                    <p className="text-xs text-gray-500 mt-1.5">
+                      List requirements students must have before enrolling
+                    </p>
+                  </div>
 
-              <div>
-                <label className="text-sm font-medium text-secondary block mb-2">
-                  Learning Objectives
-                </label>
-                <textarea
-                  name="learningObjectives"
-                  rows={5}
-                  placeholder="Comma-separated (e.g., Master Pro Line 21 systems, Perform emergency procedures)"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
-                />
-                <p className="text-xs text-gray-500 mt-1.5">
-                  List the key learning outcomes for this course
-                </p>
+                  <div>
+                    <label className="text-sm font-medium text-secondary block mb-2">
+                      Learning Objectives
+                    </label>
+                    <textarea
+                      name="learningObjectives"
+                      value={learningObjectives}
+                      onChange={(e) => setLearningObjectives(e.target.value)}
+                      rows={4}
+                      placeholder="Comma-separated (e.g., Master Pro Line 21 systems, Perform emergency procedures)"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
+                    />
+                    <p className="text-xs text-gray-500 mt-1.5">
+                      What students will learn upon completion
+                    </p>
+                  </div>
+                </div>
               </div>
             </TabsContent>
           </Tabs>
@@ -1103,7 +1278,7 @@ export default function CreateCourse() {
               type="button"
               variant="outline"
               onClick={() => router.back()}
-              disabled={isUploading}
+              disabled={isSaving || isUploading}
             >
               <X className="w-4 h-4 mr-2" />
               Cancel
@@ -1135,7 +1310,9 @@ export default function CreateCourse() {
         onOpenChange={setMediaLibraryOpen}
         onSelect={(url: string) => {
           setThumbnailPreview(url);
+          setThumbnailFile(null); // Clear file since we're using URL
           setMediaLibraryOpen(false);
+          push({ type: "success", message: "Thumbnail selected from library" });
         }}
         title="Select Course Thumbnail"
       />

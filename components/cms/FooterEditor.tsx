@@ -80,12 +80,6 @@ export function FooterEditor({
     refetchOnWindowFocus: false,
   });
 
-  // Debug logging
-  useEffect(() => {
-    console.log("FooterEditor - activeFooter:", activeFooter);
-    console.log("FooterEditor - isLoading:", isLoading);
-    console.log("FooterEditor - error:", error);
-  }, [activeFooter, isLoading, error]);
 
   const effectiveFooter = useMemo<Footer | null>(() => {
     if (initialData && initialData.logo && initialData.socialMedia) {
@@ -334,7 +328,6 @@ export function FooterEditor({
           <p className="text-muted-foreground">No footer data available</p>
           <Button
             onClick={() => {
-              console.log("Refetching footer data...");
               queryClient.invalidateQueries({ queryKey: ["activeFooter"] });
             }}
           >

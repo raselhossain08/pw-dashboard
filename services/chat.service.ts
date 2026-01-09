@@ -35,9 +35,6 @@ export const chatService = {
   connect(includeSupport: boolean = true): Socket {
     const token = getAccessToken();
     const socketBase = getSocketBase();
-    console.log('[Chat] Connecting to:', `${socketBase}/chat`);
-    console.log('[Chat] Token available:', !!token);
-    console.log('[Chat] Include support conversations:', includeSupport);
 
     const socket = io(`${socketBase}/chat`, {
       auth: { token: token ? `Bearer ${token}` : undefined },

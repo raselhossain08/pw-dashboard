@@ -164,9 +164,6 @@ export default function Dashboard() {
   ];
 
   useEffect(() => {
-    console.log("=== CHART RENDERING ===");
-    console.log("Charts data:", charts);
-    console.log("Plotly loaded:", !!window.Plotly);
 
     if (!charts) {
       console.warn("Charts data not ready");
@@ -179,7 +176,6 @@ export default function Dashboard() {
       const checkPlotly = setInterval(() => {
         if (window.Plotly) {
           clearInterval(checkPlotly);
-          console.log("Plotly loaded, rendering charts now");
           renderCharts();
         }
       }, 100);
@@ -191,12 +187,7 @@ export default function Dashboard() {
     function renderCharts() {
       if (!window.Plotly || !charts) return;
 
-      console.log("Rendering charts with data:", {
-        enrollments: charts.enrollments,
-        revenue: charts.revenue,
-        progress: charts.progress,
-        traffic: charts.traffic,
-      });
+
 
       const enrollmentsData = [
         {

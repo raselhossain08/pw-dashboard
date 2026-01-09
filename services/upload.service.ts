@@ -75,9 +75,8 @@ class UploadService {
                 },
             });
 
-            console.log('Upload response:', response);
             const responseData: any = response.data;
-            console.log('Upload data:', responseData);
+
 
             // Handle nested response structure: {success: true, data: {...}}
             const data = responseData.data || responseData;

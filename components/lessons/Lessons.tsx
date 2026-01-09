@@ -527,10 +527,8 @@ export default function Lessons() {
     const [playerReady, setPlayerReady] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
 
-    console.log("🎬 ResponsivePlayer rendering:", { url, className, autoPlay });
-
     if (!url) {
-      console.warn("⚠️ ResponsivePlayer: No URL provided");
+      
       return (
         <div className="w-full h-64 bg-gray-100 rounded-lg flex items-center justify-center">
           <p className="text-gray-500">No video URL provided</p>
@@ -540,7 +538,6 @@ export default function Lessons() {
 
     // Bunny CDN embed
     if (isBunnyEmbed(url)) {
-      console.log("📺 Bunny CDN embed detected");
       const src = url.includes("?")
         ? `${url}&autoplay=${autoPlay ? "true" : "false"}`
         : `${url}?autoplay=${autoPlay ? "true" : "false"}`;
@@ -559,7 +556,6 @@ export default function Lessons() {
 
     // Native video files (mp4, webm, etc.)
     if (isNativePlayable(url)) {
-      console.log("🎥 Native video file detected");
       // Don't pass onDuration to VideoPlayer - use onLoaded instead
       return (
         <VideoPlayer
@@ -567,15 +563,12 @@ export default function Lessons() {
           poster={poster}
           className={className}
           onLoaded={(d) => {
-            console.log("🎥 VideoPlayer onLoaded triggered:", d);
             if (onVideoDuration) onVideoDuration(d);
           }}
         />
       );
     }
 
-    // YouTube, Vimeo, and other platforms via ReactPlayer
-    console.log("▶️ Using ReactPlayer for:", url);
 
     // For h-64 class, convert to aspect ratio
     const containerClass = className?.includes("h-64")
@@ -597,7 +590,6 @@ export default function Lessons() {
           stopOnUnmount={false}
           light={poster}
           onReady={() => {
-            console.log("✅ ReactPlayer ready");
             setPlayerReady(true);
           }}
           onError={(e: any) => {
@@ -605,7 +597,7 @@ export default function Lessons() {
             setError("Failed to load video");
           }}
           onDuration={(d: number) => {
-            console.log("⏱️ Video duration detected:", d, "seconds");
+
             if (onVideoDuration) onVideoDuration(d);
           }}
           config={{
@@ -670,13 +662,11 @@ export default function Lessons() {
   } = useQuery({
     queryKey: ["courses", { page: 1, limit: 100 }],
     queryFn: async () => {
-      console.log("🔍 Fetching courses...");
       try {
         const result = await coursesService.getAllCourses({
           page: 1,
           limit: 100,
         });
-        console.log("✅ Courses fetched:", result);
         return result;
       } catch (error) {
         console.error("❌ Error fetching courses:", error);

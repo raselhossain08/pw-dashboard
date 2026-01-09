@@ -9,7 +9,6 @@ export default async function EditCoursePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  console.log("EditCoursePage - Course ID:", id);
   return (
     <RequireAuth roles={["admin", "super_admin", "instructor"]}>
       <AppLayout>

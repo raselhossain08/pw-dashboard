@@ -58,8 +58,9 @@ function EditCourse({ courseId }: EditCourseProps) {
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [mediaLibraryOpen, setMediaLibraryOpen] = React.useState(false);
   const [instructors, setInstructors] = React.useState<any[]>([]);
-  const [selectedInstructor, setSelectedInstructor] =
-    React.useState<string>("");
+  const [selectedInstructors, setSelectedInstructors] = React.useState<
+    string[]
+  >([]);
   const [activeTab, setActiveTab] = React.useState("basic");
   const [isSaving, setIsSaving] = React.useState(false);
   const [title, setTitle] = React.useState<string>("");
@@ -98,10 +99,8 @@ function EditCourse({ courseId }: EditCourseProps) {
           setInstructors(data.data);
         } else {
           setInstructors([]);
-          console.warn("Instructors data format unexpected:", data);
         }
       } catch (error) {
-        console.error("Failed to fetch instructors:", error);
         setInstructors([]);
         push({ type: "error", message: "Failed to load instructors" });
       }
@@ -134,9 +133,47 @@ function EditCourse({ courseId }: EditCourseProps) {
   const course = React.useMemo(() => {
     if (!courseData) return null;
     const raw: any = courseData;
-    // Handle different response structures
-    const c = raw?.data?.course || raw?.data || raw?.course || raw;
-    if (!c) return null;
+
+    // Handle different response structures - check most specific first
+    const c =
+      raw?.data?.data || raw?.data?.course || raw?.data || raw?.course || raw;
+    if (!c) {
+      return null;
+    }
+
+    // Extract instructor ID properly - handle ALL possible formats
+    let instructorId = null;
+    if (c.instructor) {
+      if (typeof c.instructor === "object" && c.instructor !== null) {
+        // Instructor is populated object - try multiple ID fields
+        const idField = c.instructor._id || c.instructor.id;
+
+        if (typeof idField === "string") {
+          instructorId = idField;
+        } else if (idField && typeof idField === "object" && idField.toString) {
+          // Handle MongoDB ObjectId
+          instructorId = idField.toString();
+        } else if (idField) {
+          // Last resort - convert to string
+          instructorId = String(idField);
+        }
+      } else if (typeof c.instructor === "string") {
+        // Instructor is just an ID string
+        instructorId = c.instructor;
+      }
+    }
+
+    // Extract instructors array
+    const instructorsArray: any[] = [];
+    if (c.instructors && Array.isArray(c.instructors)) {
+      c.instructors.forEach((inst: any) => {
+        if (typeof inst === "object" && inst !== null) {
+          instructorsArray.push(inst);
+        } else if (typeof inst === "string") {
+          instructorsArray.push({ _id: inst, id: inst });
+        }
+      });
+    }
 
     return {
       ...c,
@@ -147,20 +184,71 @@ function EditCourse({ courseId }: EditCourseProps) {
       learningObjectives: Array.isArray(c.learningObjectives)
         ? c.learningObjectives
         : [],
-      instructor:
-        typeof c.instructor === "object" ? c.instructor?._id : c.instructor,
+      instructorId, // Store the ID separately for easy access
+      instructorObject: typeof c.instructor === "object" ? c.instructor : null, // Store full object
+      instructor: c.instructor, // Keep original for reference
+      instructors: instructorsArray, // Store instructors array
     };
   }, [courseData]);
+
+  // Set instructors when both course and instructors are loaded
+  React.useEffect(() => {
+    if (course && instructors.length > 0) {
+      const instructorIds: string[] = [];
+
+      // Handle primary instructor
+      if (course.instructorId) {
+        instructorIds.push(course.instructorId);
+
+        // Add to instructors list if not found
+        const found = instructors.find((i) => i._id === course.instructorId);
+        if (!found && course.instructorObject) {
+          setInstructors((prev) => {
+            if (prev.some((i) => i._id === course.instructorId)) {
+              return prev;
+            }
+            return [
+              {
+                _id: course.instructorId,
+                ...course.instructorObject,
+              },
+              ...prev,
+            ];
+          });
+        }
+      }
+
+      // Handle multiple instructors array
+      if (course.instructors && Array.isArray(course.instructors)) {
+        course.instructors.forEach((inst: any) => {
+          const instId = typeof inst === "string" ? inst : inst._id || inst.id;
+          if (instId && !instructorIds.includes(instId)) {
+            instructorIds.push(instId);
+          }
+        });
+      }
+
+      // Remove duplicates and set selected instructors
+      const uniqueIds = [...new Set(instructorIds)];
+      if (uniqueIds.length > 0) {
+        setSelectedInstructors(uniqueIds);
+      }
+    }
+  }, [course?.instructorId, course?.instructors, instructors]);
 
   React.useEffect(() => {
     if (course) {
       setTitle(course.title || "");
-      setSelectedCats(course.categories || []);
-      setSelectedTags(course.tags || []);
+      setSelectedCats(
+        Array.isArray(course.categories) ? course.categories : []
+      );
+      setSelectedTags(Array.isArray(course.tags) ? course.tags : []);
       setThumbnailPreview(course.thumbnail || "");
-      setSelectedInstructor(course.instructor?._id || course.instructor || "");
+
       setMaxStudents(
-        course.maxStudents && course.maxStudents > 0
+        course.maxStudents &&
+          course.maxStudents > 0 &&
+          course.maxStudents < 999999
           ? String(course.maxStudents)
           : "unlimited"
       );
@@ -169,23 +257,33 @@ function EditCourse({ courseId }: EditCourseProps) {
       setDescription(course.description || "");
       setContent(course.content || "");
       setExcerpt(course.excerpt || "");
-      setAircraftTypes(course.aircraftTypes || []);
-      setIsFeatured(course.isFeatured || false);
-      setProvidesCertificate(course.providesCertificate || false);
-      setIsFree(course.isFree || course.price === 0);
+      setAircraftTypes(
+        Array.isArray(course.aircraftTypes) ? course.aircraftTypes : []
+      );
+      setIsFeatured(Boolean(course.isFeatured));
+      setProvidesCertificate(Boolean(course.providesCertificate));
+      setIsFree(course.isFree === true || course.price === 0);
       setPrice(String(course.price || 0));
       setOriginalPrice(
-        course.originalPrice ? String(course.originalPrice) : ""
+        course.originalPrice && course.originalPrice > 0
+          ? String(course.originalPrice)
+          : ""
       );
-      setDuration(String(Math.max(course.duration || 1, 1)));
+      setDuration(
+        String(Math.max(course.duration || course.durationHours || 1, 1))
+      );
       setPrerequisites(
         Array.isArray(course.prerequisites)
           ? course.prerequisites.join(", ")
+          : typeof course.prerequisites === "string"
+          ? course.prerequisites
           : ""
       );
       setLearningObjectives(
         Array.isArray(course.learningObjectives)
           ? course.learningObjectives.join(", ")
+          : typeof course.learningObjectives === "string"
+          ? course.learningObjectives
           : ""
       );
       setMoneyBackGuarantee(
@@ -272,10 +370,26 @@ function EditCourse({ courseId }: EditCourseProps) {
     }
   };
 
-  if (isLoading || !course) {
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="text-gray-600">Loading course data...</p>
+      </div>
+    );
+  }
+
+  if (!course) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        <div className="text-red-600">
+          <X className="w-12 h-12" />
+        </div>
+        <p className="text-gray-600 text-lg font-semibold">Course not found</p>
+        <Button onClick={() => router.push("/courses")} variant="outline">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Courses
+        </Button>
       </div>
     );
   }
@@ -313,6 +427,7 @@ function EditCourse({ courseId }: EditCourseProps) {
         <form
           onSubmit={async (e) => {
             e.preventDefault();
+            console.log("🚀 FORM SUBMIT TRIGGERED");
             setIsSaving(true);
 
             // Use state values (all fields are now controlled components)
@@ -327,7 +442,7 @@ function EditCourse({ courseId }: EditCourseProps) {
             const durationValue = Number(duration) || 1;
             const maxStudentsValue =
               maxStudents === "unlimited" ? 999999 : Number(maxStudents);
-            const instructor = selectedInstructor || undefined;
+            const instructorsList = selectedInstructors.filter(Boolean);
 
             const tags = selectedTags.length > 0 ? selectedTags : undefined;
             const prerequisitesArray = prerequisites
@@ -343,25 +458,19 @@ function EditCourse({ courseId }: EditCourseProps) {
                   .filter(Boolean)
               : undefined;
 
-            // Validate required fields
+            // Only validate title (backend will handle other validations)
             if (!titleValue) {
               push({ type: "error", message: "Course title is required" });
               setIsSaving(false);
-              return;
-            }
-
-            if (!descriptionValue) {
-              push({
-                type: "error",
-                message: "Course description is required",
-              });
-              setIsSaving(false);
+              setActiveTab("basic");
               return;
             }
 
             try {
-              let thumbnailUrl = course.thumbnail || "";
+              // Determine thumbnail URL
+              let thumbnailUrl = thumbnailPreview || course.thumbnail || "";
 
+              // If user uploaded a new file, upload it first
               if (thumbnailFile) {
                 setIsUploading(true);
                 try {
@@ -385,7 +494,6 @@ function EditCourse({ courseId }: EditCourseProps) {
                 } catch (uploadError) {
                   setIsUploading(false);
                   setIsSaving(false);
-                  console.error("Thumbnail upload failed:", uploadError);
                   push({
                     type: "error",
                     message:
@@ -400,8 +508,8 @@ function EditCourse({ courseId }: EditCourseProps) {
               const updatePayload: any = {
                 title: titleValue,
                 description: descriptionValue,
-                content: contentValue || undefined,
-                excerpt: excerpt?.trim() || undefined,
+                content: contentValue || "",
+                excerpt: excerpt?.trim() || "",
                 level: level,
                 type: type,
                 price: Number(priceValue),
@@ -410,42 +518,51 @@ function EditCourse({ courseId }: EditCourseProps) {
                 duration: Math.max(durationValue, 1),
                 durationHours: Math.max(durationValue, 1),
                 maxStudents: Math.max(maxStudentsValue, 1),
-                isPublished: true,
-                tags: tags && tags.length > 0 ? tags : undefined,
-                categories: selectedCats.length > 0 ? selectedCats : undefined,
+                status: "published", // Always published
+                isPublished: true, // Always published
+                tags: tags && tags.length > 0 ? tags : [],
+                categories: selectedCats.length > 0 ? selectedCats : [],
                 prerequisites:
                   prerequisitesArray && prerequisitesArray.length > 0
                     ? prerequisitesArray
-                    : undefined,
+                    : [],
                 learningObjectives:
                   learningObjectivesArray && learningObjectivesArray.length > 0
                     ? learningObjectivesArray
-                    : undefined,
-                instructor: instructor || undefined,
-                aircraftTypes:
-                  aircraftTypes.length > 0 ? aircraftTypes : undefined,
+                    : [],
+                instructors:
+                  instructorsList.length > 0 ? instructorsList : undefined,
+                instructor: instructorsList[0] || undefined, // Primary instructor for backward compatibility
+                aircraftTypes: aircraftTypes.length > 0 ? aircraftTypes : [],
                 isFeatured: Boolean(isFeatured),
                 providesCertificate: Boolean(providesCertificate),
                 moneyBackGuarantee: Number(moneyBackGuarantee) || 30,
                 language: language || "en",
+                thumbnail: thumbnailUrl,
               };
 
-              if (thumbnailUrl) {
-                updatePayload.thumbnail = thumbnailUrl;
-              }
+              const response = await coursesService.updateCourse(
+                courseId,
+                updatePayload
+              );
 
-              console.log("📤 Sending update payload:", updatePayload);
+              push({
+                type: "success",
+                message: "Course updated successfully! Redirecting...",
+              });
 
-              await coursesService.updateCourse(courseId, updatePayload);
+              // Invalidate queries to refresh data
+              await qc.invalidateQueries({ queryKey: ["courses"] });
+              await qc.invalidateQueries({ queryKey: ["course", courseId] });
 
-              push({ type: "success", message: "Course updated successfully" });
-              qc.invalidateQueries({ queryKey: ["courses"] });
-              qc.invalidateQueries({ queryKey: ["course", courseId] });
-              router.push("/courses");
+              // Small delay to show success message before redirect
+              setTimeout(() => {
+                router.push("/courses");
+              }, 1000);
             } catch (err) {
               const msg =
                 err instanceof Error ? err.message : "Failed to update course";
-              push({ type: "error", message: msg });
+              push({ type: "error", message: `Update failed: ${msg}` });
             } finally {
               setIsSaving(false);
               setIsUploading(false);
@@ -563,7 +680,12 @@ function EditCourse({ courseId }: EditCourseProps) {
 
                   <div>
                     <label className="text-sm font-medium text-secondary block mb-4">
-                      Brief Description
+                      Brief Description *
+                      {description && (
+                        <span className="ml-2 text-xs text-green-600 font-normal">
+                          ✓ {description.length} characters
+                        </span>
+                      )}
                     </label>
                     <RichTextEditor
                       content={description}
@@ -575,36 +697,107 @@ function EditCourse({ courseId }: EditCourseProps) {
 
                 <div className="space-y-6">
                   <div>
-                    <label className="text-sm font-medium text-secondary block mb-2">
-                      Instructor *
-                    </label>
+                    <div className="flex items-center justify-between mb-3">
+                      <label className="text-sm font-medium text-secondary">
+                        Instructors *
+                        {selectedInstructors.length > 0 && (
+                          <span className="ml-2 text-xs text-green-600 font-normal">
+                            ✓ {selectedInstructors.length} selected
+                          </span>
+                        )}
+                      </label>
+                      <Badge variant="outline" className="bg-purple-50">
+                        {selectedInstructors.length} instructor
+                        {selectedInstructors.length !== 1 ? "s" : ""}
+                      </Badge>
+                    </div>
+
                     <Select
-                      value={selectedInstructor}
-                      onValueChange={setSelectedInstructor}
+                      value=""
+                      onValueChange={(value) => {
+                        if (value && !selectedInstructors.includes(value)) {
+                          setSelectedInstructors((prev) => [...prev, value]);
+                        }
+                      }}
                     >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select an instructor" />
+                      <SelectTrigger
+                        className={`w-full ${
+                          selectedInstructors.length === 0
+                            ? "border-red-300"
+                            : ""
+                        }`}
+                      >
+                        <SelectValue placeholder="Select instructors for this course" />
                       </SelectTrigger>
                       <SelectContent>
-                        {instructors.map((instructor) => (
-                          <SelectItem
-                            key={instructor._id}
-                            value={instructor._id}
-                          >
-                            {instructor.firstName} {instructor.lastName} (
-                            {instructor.email})
-                          </SelectItem>
-                        ))}
+                        {instructors.length > 0 ? (
+                          instructors
+                            .filter(
+                              (inst) => !selectedInstructors.includes(inst._id)
+                            )
+                            .map((instructor) => (
+                              <SelectItem
+                                key={instructor._id}
+                                value={instructor._id}
+                              >
+                                {instructor.firstName} {instructor.lastName} (
+                                {instructor.email})
+                              </SelectItem>
+                            ))
+                        ) : (
+                          <div className="px-2 py-4 text-sm text-gray-500 text-center">
+                            No instructors available
+                          </div>
+                        )}
                       </SelectContent>
                     </Select>
-                    <input
-                      type="hidden"
-                      name="instructor"
-                      value={selectedInstructor}
-                    />
+
                     <p className="text-xs text-gray-500 mt-1.5">
-                      Select the instructor who will teach this course
+                      Select one or more instructors who will teach this course
                     </p>
+
+                    {/* Selected Instructors Display */}
+                    {selectedInstructors.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        <p className="text-xs font-medium text-gray-700">
+                          Selected Instructors:
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedInstructors.map((instructorId, index) => {
+                            const instructor = instructors.find(
+                              (i) => i._id === instructorId
+                            );
+                            if (!instructor) return null;
+                            return (
+                              <Badge
+                                key={instructorId}
+                                className="bg-purple-600 text-white shadow-sm pr-1"
+                              >
+                                {index === 0 && (
+                                  <Star className="w-3 h-3 mr-1" />
+                                )}
+                                {instructor.firstName} {instructor.lastName}
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setSelectedInstructors((prev) =>
+                                      prev.filter((id) => id !== instructorId)
+                                    )
+                                  }
+                                  className="ml-2 hover:bg-white/30 rounded-full p-0.5 transition-all"
+                                >
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </Badge>
+                            );
+                          })}
+                        </div>
+                        <p className="text-xs text-gray-500 italic">
+                          <Star className="w-3 h-3 inline mr-1" />
+                          First instructor will be set as primary instructor
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -792,27 +985,6 @@ function EditCourse({ courseId }: EditCourseProps) {
                       <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
                         <div>
                           <p className="font-medium text-sm text-secondary">
-                            Current Status
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {course.isPublished
-                              ? "Visible to students"
-                              : "Hidden from students"}
-                          </p>
-                        </div>
-                        <Badge
-                          className={
-                            course.isPublished
-                              ? "bg-green-600"
-                              : "bg-yellow-600"
-                          }
-                        >
-                          {course.isPublished ? "Published" : "Draft"}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center justify-between p-3 bg-white rounded-lg border">
-                        <div>
-                          <p className="font-medium text-sm text-secondary">
                             Enrolled Students
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
@@ -947,6 +1119,11 @@ function EditCourse({ courseId }: EditCourseProps) {
                 <div>
                   <label className="text-sm font-medium text-secondary block mb-3">
                     Course Thumbnail
+                    {thumbnailPreview && (
+                      <span className="ml-2 text-xs text-green-600 font-normal">
+                        ✓ Image loaded
+                      </span>
+                    )}
                   </label>
                   <div
                     className={`border-2 border-dashed rounded-xl p-6 transition-all ${
@@ -966,17 +1143,30 @@ function EditCourse({ courseId }: EditCourseProps) {
                             alt="Thumbnail preview"
                             fill
                             className="object-cover"
+                            unoptimized={thumbnailPreview.startsWith("data:")}
                           />
                         </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={clearThumbnail}
-                          className="absolute top-2 right-2 bg-white/90 hover:bg-white shadow-lg"
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
+                        <div className="absolute top-2 right-2 flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="bg-white/90 hover:bg-white shadow-lg"
+                          >
+                            <Upload className="w-4 h-4 mr-2" />
+                            Change
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={clearThumbnail}
+                            className="bg-white/90 hover:bg-white shadow-lg"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
                         {isUploading && (
                           <div className="mt-4">
                             <div className="flex justify-between text-sm text-gray-600 mb-2">
@@ -1148,6 +1338,11 @@ function EditCourse({ courseId }: EditCourseProps) {
                     <div className="flex items-center justify-between mb-3">
                       <label className="text-sm font-medium text-secondary">
                         SEO Tags
+                        {selectedTags.length > 0 && (
+                          <span className="ml-2 text-xs text-green-600 font-normal">
+                            ✓ {selectedTags.length} tags added
+                          </span>
+                        )}
                       </label>
                       <Badge variant="outline" className="bg-blue-50">
                         {selectedTags.length} tags
@@ -1257,12 +1452,21 @@ function EditCourse({ courseId }: EditCourseProps) {
                 <div>
                   <label className="text-sm font-medium text-secondary block mb-4">
                     Detailed Content
+                    {content && (
+                      <span className="ml-2 text-xs text-green-600 font-normal">
+                        ✓ {content.length} characters
+                      </span>
+                    )}
                   </label>
                   <RichTextEditor
                     content={content}
                     onChange={setContent}
                     placeholder="Detailed course content and curriculum description..."
                   />
+                  <p className="text-xs text-gray-500 mt-2">
+                    Provide comprehensive information about the course
+                    curriculum, modules, and learning materials
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -1389,7 +1593,9 @@ function EditCourse({ courseId }: EditCourseProps) {
         onOpenChange={setMediaLibraryOpen}
         onSelect={(url: string) => {
           setThumbnailPreview(url);
+          setThumbnailFile(null); // Clear file since we're using URL
           setMediaLibraryOpen(false);
+          push({ type: "success", message: "Thumbnail selected from library" });
         }}
         title="Select Course Thumbnail"
       />
