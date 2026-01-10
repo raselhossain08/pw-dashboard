@@ -22,11 +22,30 @@ function decodeJwtPayload(token: string): Record<string, unknown> | null {
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
-  if (PUBLIC_PATHS.has(pathname) || pathname.startsWith('/_next') || pathname.startsWith('/assets')) {
+
+  // Check if user is accessing protected paths (excluding login page)
+  if (pathname.startsWith('/_next') || pathname.startsWith('/assets')) {
     return NextResponse.next()
   }
 
   const access = req.cookies.get('pw_access_token')?.value || ''
+
+  // If accessing login page and user has valid token, redirect to home
+  if (pathname === '/login' && access) {
+    const payload = decodeJwtPayload(access)
+    if (payload && typeof payload.role === 'string') {
+      const url = req.nextUrl.clone()
+      url.pathname = '/'
+      return NextResponse.redirect(url)
+    }
+  }
+
+  // For public paths (except login which we handled above), allow access
+  if (PUBLIC_PATHS.has(pathname)) {
+    return NextResponse.next()
+  }
+
+  // For protected paths, check authentication
   if (!access) {
     const url = req.nextUrl.clone()
     url.pathname = '/login'
